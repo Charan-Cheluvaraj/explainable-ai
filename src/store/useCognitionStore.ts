@@ -8,6 +8,7 @@ import type { DebateResponse } from '../api';
 
 export type AgentStatus = 'idle' | 'thinking' | 'speaking' | 'dissenting';
 export type VisualState = 'STABLE' | 'WARNING' | 'CRISIS';
+export type DebatePhase = 'idle' | 'grounding' | 'round1' | 'brawl' | 'synthesis' | 'reveal';
 
 export type ConstitutionLaw =
   | 'LAW_1_ETHICAL_PRIMACY'
@@ -32,6 +33,7 @@ interface CognitionStore {
   tensionVariance: number;
   visualState: VisualState;
   isDebating: boolean;
+  debatePhase: DebatePhase;
   round: number;
   lastQuery: string;
   violations: ConstitutionViolation[];
@@ -52,6 +54,7 @@ const INITIAL_STATE = {
   tensionVariance: 0,
   visualState: 'STABLE' as VisualState,
   isDebating: false,
+  debatePhase: 'idle' as DebatePhase,
   round: 0,
   lastQuery: '',
   violations: [],
@@ -66,6 +69,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       isDebating: true, 
       lastQuery: query, 
       round: 1,
+      debatePhase: 'grounding',
       agents: {
         technocrat: { id: 'technocrat', status: 'thinking', confidence: 1.0, lastThought: '' },
         humanist: { id: 'humanist', status: 'thinking', confidence: 1.0, lastThought: '' },
@@ -73,21 +77,30 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       }
     });
 
+    // Simulated Phase progression (Visual only while API fetches)
+    const phases: { phase: DebatePhase, delay: number }[] = [
+      { phase: 'round1', delay: 2000 },
+      { phase: 'brawl', delay: 6000 },
+      { phase: 'synthesis', delay: 11000 },
+    ];
+
+    const phaseTimers = phases.map(({ phase, delay }) => 
+      setTimeout(() => {
+        if (get().isDebating) set({ debatePhase: phase });
+      }, delay)
+    );
+
     try {
       const response = await conductDebate(query);
       
-      // Map backend response to store state
-      // Round 1: Initial thoughts
-      set({ round: 2 });
+      // Clear timers and jump to reveal
+      phaseTimers.forEach(clearTimeout);
       
-      // Round 2: Brawl (adversarial)
-      set({ round: 3 });
-
-      // Final Synthesis
       const synthesis = response.final_synthesis;
       
       set({
         isDebating: false,
+        debatePhase: 'reveal',
         tensionVariance: response.tension_variance,
         visualState: synthesis.visual_state,
         agents: {
@@ -119,7 +132,8 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
 
     } catch (error) {
       console.error('Debate failed:', error);
-      set({ isDebating: false });
+      phaseTimers.forEach(clearTimeout);
+      set({ isDebating: false, debatePhase: 'idle' });
     }
   },
 
@@ -127,3 +141,4 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
 
   reset: () => set(INITIAL_STATE),
 }));
+

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ParliamentCanvas } from './components/ParliamentCanvas';
 import { OpeningGate } from './components/ui/OpeningGate';
+import { TacticalTelemetry } from './components/ui/TacticalTelemetry';
 
 // ─────────────────────────────────────────────────────────────
 // Agent Config
@@ -323,6 +324,7 @@ export default function App() {
               transition={{ duration: 0.4 }}
             >
               <StatusBar />
+              <TacticalTelemetry />
 
               <div className="main-stage">
                 <motion.div 

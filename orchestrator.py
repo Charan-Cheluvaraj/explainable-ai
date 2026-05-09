@@ -13,6 +13,10 @@ import asyncio
 import json
 import os
 from typing import List, Literal, Dict, Optional, Union
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -30,7 +34,17 @@ from memory_service import MemoryService, Citation, GroundingBundle
 # 1. SDK Configuration
 # ─────────────────────────────────────────────────────────────
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Synapse3D Parliament API", version="1.3.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "REPLACE_ME"))
 groq_client  = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
@@ -368,4 +382,4 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("orchestrator:app", host="0.0.0.0", port=8000, reload=True)

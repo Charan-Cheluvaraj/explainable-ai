@@ -1,22 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCognitionStore } from '../store/useCognitionStore';
 
 interface ParliamentCanvasProps {
   isVisible: boolean;
   onAnimationComplete?: () => void;
 }
 
+// ── Critique Packet Component ────────────────────────────────
+const CritiquePacket = ({ from, to, color, delay }: { from: {x: number, y: number}, to: {x: number, y: number}, color: string, delay: number }) => (
+  <motion.div
+    className="absolute w-1.5 h-1.5 rounded-full z-50"
+    style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }}
+    initial={{ left: `${from.x}%`, top: `${from.y}%`, opacity: 0, scale: 0 }}
+    animate={{ 
+      left: [`${from.x}%`, `${to.x}%`],
+      top: [`${from.y}%`, `${to.y}%`],
+      opacity: [0, 1, 1, 0],
+      scale: [0.5, 1, 1, 0.5]
+    }}
+    transition={{ 
+      duration: 1.2, 
+      delay, 
+      repeat: Infinity, 
+      ease: "easeInOut",
+      repeatDelay: Math.random() * 2
+    }}
+  />
+);
+
 export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, onAnimationComplete }) => {
-  const [phase, setPhase] = useState(0);
+  const { debatePhase, visualState, tensionVariance } = useCognitionStore();
+  
+  // Local phase for initial intro
+  const [introPhase, setIntroPhase] = useState(0);
 
   useEffect(() => {
     if (isVisible) {
-      setPhase(1);
-      
-      const t1 = setTimeout(() => setPhase(2), 700);
-      const t2 = setTimeout(() => setPhase(3), 1100);
+      setIntroPhase(1);
+      const t1 = setTimeout(() => setIntroPhase(2), 700);
+      const t2 = setTimeout(() => setIntroPhase(3), 1100);
       const t3 = setTimeout(() => {
-        setPhase(4);
+        setIntroPhase(4);
         onAnimationComplete?.();
       }, 1700);
 
@@ -26,39 +51,57 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
         clearTimeout(t3);
       };
     } else {
-      setPhase(0);
+      setIntroPhase(0);
     }
   }, [isVisible, onAnimationComplete]);
 
+  // Positions for nodes (%)
+  const positions = {
+    judge: { x: 50, y: 50 },
+    technocrat: { x: 25, y: 30 },
+    humanist: { x: 75, y: 30 },
+    inquisitor: { x: 50, y: 75 },
+  };
+
+  const packets = useMemo(() => [
+    { from: positions.technocrat, to: positions.humanist, color: '#38bdf8', delay: 0 },
+    { from: positions.humanist, to: positions.inquisitor, color: '#fb7185', delay: 0.4 },
+    { from: positions.inquisitor, to: positions.technocrat, color: '#fbbf24', delay: 0.8 },
+    { from: positions.technocrat, to: positions.inquisitor, color: '#38bdf8', delay: 1.2 },
+    { from: positions.humanist, to: positions.technocrat, color: '#fb7185', delay: 1.6 },
+  ], []);
+
   if (!isVisible) return null;
 
+  const isBrawling = debatePhase === 'brawl';
+
   return (
-    <div className="canvas-root" key="parliament-canvas-v2">
+    <div className="canvas-root" key="parliament-canvas-v3">
       <svg className="canvas-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Phase 3 & 4: Connecting Lines */}
+        {/* Connecting Lines */}
         <AnimatePresence>
-          {phase >= 3 && (
+          {introPhase >= 3 && (
             <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <motion.line
                 x1="50" y1="50" x2="25" y2="30"
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth="0.4"
+                stroke={isBrawling ? "rgba(56, 189, 248, 0.4)" : "rgba(255,255,255,0.2)"}
+                strokeWidth={isBrawling ? "0.6" : "0.4"}
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1, ease: "easeOut" }}
               />
               <motion.line
                 x1="50" y1="50" x2="75" y2="30"
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth="0.4"
+                stroke={isBrawling ? "rgba(251, 113, 133, 0.4)" : "rgba(255,255,255,0.2)"}
+                strokeWidth={isBrawling ? "0.6" : "0.4"}
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1, ease: "easeOut" }}
               />
               <motion.line
                 x1="50" y1="50" x2="50" y2="75"
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth="0.4"
+                stroke={isBrawling ? "rgba(251, 191, 36, 0.4)" : "rgba(255,255,255,0.2)"}
+                strokeWidth={isBrawling ? "0.6" : "0.4"}
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1, ease: "easeOut" }}
@@ -68,9 +111,9 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
         </AnimatePresence>
       </svg>
 
-      {/* Phase 1: The Travelling Orb (Curved path via keyframes) */}
+      {/* Intro Travel Orb */}
       <AnimatePresence>
-        {phase === 1 && (
+        {introPhase === 1 && (
           <motion.div
             className="travel-orb"
             initial={{ left: '50%', top: '90%', scale: 0 }}
@@ -86,11 +129,18 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
         )}
       </AnimatePresence>
 
-      {/* Phase 2+: The Judge Node */}
+      {/* Brawl Critique Packets */}
       <AnimatePresence>
-        {phase >= 2 && (
+        {isBrawling && packets.map((p, i) => (
+          <CritiquePacket key={i} {...p} />
+        ))}
+      </AnimatePresence>
+
+      {/* The Judge Node */}
+      <AnimatePresence>
+        {introPhase >= 2 && (
           <motion.div
-            className="node judge-node"
+            className={`node judge-node ${visualState.toLowerCase()}`}
             initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
             animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
             transition={{ type: 'spring', damping: 15, stiffness: 200 }}
@@ -99,28 +149,33 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
             <div className="node-glass" />
             <span className="node-label">JUDGE</span>
             
-            {phase === 2 && (
+            {(introPhase === 2 || debatePhase === 'synthesis') && (
               <motion.div
                 className="burst-ring"
                 initial={{ scale: 0.5, opacity: 1 }}
                 animate={{ scale: 4, opacity: 0 }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 0.8, repeat: debatePhase === 'synthesis' ? Infinity : 0 }}
               />
             )}
 
-            {phase >= 4 && (
-              <div className="node-status">ANALYSING...</div>
+            {introPhase >= 4 && (
+              <div className="node-status">
+                {debatePhase === 'grounding' ? 'GROUNDING...' :
+                 debatePhase === 'round1' ? 'DELIBERATING...' :
+                 debatePhase === 'brawl' ? 'THE BRAWL...' :
+                 debatePhase === 'synthesis' ? 'SYNTHESIZING...' : 'FINALIZING...'}
+              </div>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Phase 3+: Agent Nodes */}
+      {/* Agent Nodes */}
       <AnimatePresence>
-        {phase >= 3 && (
+        {introPhase >= 3 && (
           <>
             <motion.div
-              className="node agent-node"
+              className={`node agent-node ${debatePhase === 'round1' || isBrawling ? 'active' : ''}`}
               initial={{ left: '50%', top: '50%', scale: 0, x: '-50%', y: '-50%' }}
               animate={{ left: '25%', top: '30%', scale: 1, x: '-50%', y: '-50%' }}
               transition={{ duration: 0.8, ease: "easeOut" }}
@@ -128,11 +183,11 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
               <div className="node-glass" style={{ borderColor: '#38bdf8' }} />
               <div className="agent-glow" style={{ background: '#38bdf8' }} />
               <span className="node-label">TECHNOCRAT</span>
-              {phase >= 4 && <div className="spinner" />}
+              {(introPhase >= 4 && debatePhase !== 'reveal') && <div className="spinner" />}
             </motion.div>
 
             <motion.div
-              className="node agent-node"
+              className={`node agent-node ${debatePhase === 'round1' || isBrawling ? 'active' : ''}`}
               initial={{ left: '50%', top: '50%', scale: 0, x: '-50%', y: '-50%' }}
               animate={{ left: '75%', top: '30%', scale: 1, x: '-50%', y: '-50%' }}
               transition={{ duration: 0.8, ease: "easeOut" }}
@@ -140,11 +195,11 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
               <div className="node-glass" style={{ borderColor: '#fb7185' }} />
               <div className="agent-glow" style={{ background: '#fb7185' }} />
               <span className="node-label">HUMANIST</span>
-              {phase >= 4 && <div className="spinner" />}
+              {(introPhase >= 4 && debatePhase !== 'reveal') && <div className="spinner" />}
             </motion.div>
 
             <motion.div
-              className="node agent-node"
+              className={`node agent-node ${debatePhase === 'round1' || isBrawling ? 'active' : ''}`}
               initial={{ left: '50%', top: '50%', scale: 0, x: '-50%', y: '-50%' }}
               animate={{ left: '50%', top: '75%', scale: 1, x: '-50%', y: '-50%' }}
               transition={{ duration: 0.8, ease: "easeOut" }}
@@ -152,7 +207,7 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
               <div className="node-glass" style={{ borderColor: '#fbbf24' }} />
               <div className="agent-glow" style={{ background: '#fbbf24' }} />
               <span className="node-label">INQUISITOR</span>
-              {phase >= 4 && <div className="spinner" />}
+              {(introPhase >= 4 && debatePhase !== 'reveal') && <div className="spinner" />}
             </motion.div>
           </>
         )}
@@ -178,6 +233,7 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.5s ease;
         }
         .node-glass {
           position: absolute;
@@ -204,6 +260,9 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
           width: 90px;
           height: 90px;
         }
+        .judge-node.warning .node-glass { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.2); }
+        .judge-node.crisis .node-glass { border-color: #fb7185; box-shadow: 0 0 30px rgba(251, 113, 133, 0.3); }
+        
         .node-status {
           position: absolute;
           bottom: -44px;
@@ -211,6 +270,7 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
           color: rgba(255,255,255,0.7);
           letter-spacing: 0.3em;
           animation: pulse-text 2s infinite;
+          white-space: nowrap;
         }
         @keyframes pulse-text {
           0%, 100% { opacity: 0.5; }
@@ -235,8 +295,12 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
           position: absolute;
           inset: -5px;
           border-radius: 50%;
-          opacity: 0.2;
+          opacity: 0;
           filter: blur(12px);
+          transition: opacity 0.5s ease;
+        }
+        .agent-node.active .agent-glow {
+          opacity: 0.2;
         }
         .agent-node {
           width: 55px;
@@ -258,3 +322,4 @@ export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, o
     </div>
   );
 };
+
