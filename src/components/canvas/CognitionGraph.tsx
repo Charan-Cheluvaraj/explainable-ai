@@ -1,8 +1,9 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { forceSimulation, forceLink, forceManyBody, forceCenter } from 'd3-force-3d';
-import { useCognitionStore, useVisualState, LogicNode, ReasoningEdge } from '../../store/useCognitionStore';
+import { useCognitionStore, useVisualState } from '../../store/useCognitionStore';
+import type { LogicNode } from '../../store/useCognitionStore';
 import { NeuralLinkMaterial } from '../../shaders/NeuralLinkMaterial';
 
 const AGENT_COLORS = {

@@ -1,20 +1,29 @@
 /**
- * AgentPod.tsx — A single living fractal organism in the Parliament.
+ * AgentPod.tsx — Fractal Soul Edition (Task 2.3)
  *
- * Each agent is NOT a card or a panel — it's a mathematical shape whose
- * geometry, emission, and vibration all encode cognitive state.
- *
- * Technocrat: icosahedron  (crystalline logic)
- * Humanist:   torus knot   (organic branching)
- * Inquisitor: octahedron   (unstable sharp edges)
+ * Each agent is rendered via a GPU raymarcher (CognitionShader).
+ * The SDF changes geometry per agent identity.
+ * uTension drives fractal complexity.
+ * uConverge triggers Consensus Bloom (three → one white solid).
  */
 
 import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { MeshDistortMaterial, MeshTransmissionMaterial } from '@react-three/drei';
+import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AgentStatus } from '../../store/useCognitionStore';
+import { useCognitionStore } from '../../store/useCognitionStore';
 import { AGENT_COLORS } from '../../hooks/useTensionMotion';
+import { CognitionShaderMaterial } from '../../shaders/CognitionShader';
+
+// Register as JSX element
+extend({ CognitionShaderMaterial });
+
+// Augment JSX namespace
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    cognitionShaderMaterial: any;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -25,26 +34,26 @@ type AgentName = 'technocrat' | 'humanist' | 'inquisitor';
 interface AgentPodProps {
   agent: AgentName;
   status: AgentStatus;
-  confidence: number;   // 0.0–1.0 — drives glow emission strength
-  hasViolation: boolean; // triggers geometry corruption shader
+  confidence: number;
+  hasViolation: boolean;
   position: [number, number, number];
   podRef: React.RefObject<THREE.Mesh | null>;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Geometry Config per Agent
-// ─────────────────────────────────────────────────────────────
-
-const GEOMETRY_CONFIG: Record<AgentName, React.ReactNode> = {
-  technocrat: <icosahedronGeometry args={[1, 1]} />,
-  humanist:   <torusKnotGeometry args={[0.7, 0.25, 100, 16]} />,
-  inquisitor: <octahedronGeometry args={[1, 0]} />,
+const AGENT_TYPE_MAP: Record<AgentName, number> = {
+  technocrat: 0,
+  humanist:   1,
+  inquisitor: 2,
 };
 
 // ─────────────────────────────────────────────────────────────
-// Component
+// Geometry Config
 // ─────────────────────────────────────────────────────────────
+const SPHERE_GEO = new THREE.SphereGeometry(1, 48, 48);
 
+// ─────────────────────────────────────────────────────────────
+// AgentPod Component
+// ─────────────────────────────────────────────────────────────
 export function AgentPod({
   agent,
   status,
@@ -53,44 +62,113 @@ export function AgentPod({
   position,
   podRef,
 }: AgentPodProps) {
-  const matRef = useRef<THREE.MeshStandardMaterial>(null);
-  const color = new THREE.Color(AGENT_COLORS[agent]);
+  const matRef    = useRef<InstanceType<typeof CognitionShaderMaterial>>(null);
+  const lightRef  = useRef<THREE.PointLight>(null);
+  const groupRef  = useRef<THREE.Group>(null);
 
-  // Distortion factor: violation → strong mesh corruption
-  const distortFactor = hasViolation ? 0.8 : status === 'thinking' ? 0.25 : 0.05;
+  const baseColor = useMemo(() => new THREE.Color(AGENT_COLORS[agent]), [agent]);
+  const agentType = AGENT_TYPE_MAP[agent];
 
-  // Emission intensity drives "active" glow
-  const emissiveIntensity = status === 'idle' ? 0.3 : confidence * 2.2;
+  // Inverse model matrix passed to shader for ray reconstruction
+  const invModelMatrix = useMemo(() => new THREE.Matrix4(), []);
 
-  useFrame((_, delta) => {
-    if (!matRef.current) return;
-    // Smoothly animate emission on status changes
-    matRef.current.emissiveIntensity = THREE.MathUtils.lerp(
-      matRef.current.emissiveIntensity,
-      emissiveIntensity,
-      delta * 3
-    );
+  useFrame(({ clock }, delta) => {
+    if (!matRef.current || !groupRef.current) return;
+
+    const t = clock.elapsedTime;
+
+    // Pull live store values each frame (zero re-render cost)
+    const { tensionVariance, round, isDebating } = useCognitionStore.getState();
+
+    // uTension: clamp tensionVariance 0→1
+    const tension = Math.min(tensionVariance / 0.4, 1.0);
+    // uConverge: Judge is round 3 and currently debating
+    const converge = isDebating && round === 3 ? Math.min((t % 4) / 4, 1.0) : 0.0;
+
+    // Update shader uniforms
+    matRef.current.uTime    = t;
+    matRef.current.uTension = tension + (hasViolation ? 0.3 : 0.0);
+    matRef.current.uConverge = converge;
+
+    // Inverse model matrix for correct ray-casting
+    invModelMatrix.copy(groupRef.current.matrixWorld).invert();
+    matRef.current.uInvModelMatrix = invModelMatrix;
+
+    // Crisis pulse on color
+    if (hasViolation) {
+      const corruptAmount = 0.3 + 0.3 * Math.sin(t * 15.0);
+      matRef.current.uColor.lerpColors(
+        baseColor,
+        new THREE.Color(0xff2200),
+        corruptAmount
+      );
+    } else {
+      matRef.current.uColor.lerpColors(
+        matRef.current.uColor,
+        baseColor,
+        delta * 4
+      );
+    }
+
+    // Internal point-light: fluctuates with thinking status
+    if (lightRef.current) {
+      const targetIntensity =
+        status === 'idle'     ? 0.4 :
+        status === 'thinking' ? 1.5 + Math.sin(t * 8) * 0.5 :
+        status === 'speaking' ? 2.0 + confidence * 1.0 :
+                                0.1;
+      lightRef.current.intensity = THREE.MathUtils.lerp(
+        lightRef.current.intensity, targetIntensity, delta * 5
+      );
+      lightRef.current.color.lerpColors(
+        lightRef.current.color,
+        converge > 0.5 ? new THREE.Color(0xffffff) : baseColor,
+        delta * 3
+      );
+    }
+
+    // Convergence: pods physically attract toward (0,0,0)
+    if (converge > 0 && groupRef.current) {
+      groupRef.current.position.lerp(new THREE.Vector3(0, 0, 0), delta * converge * 1.5);
+    } else if (groupRef.current) {
+      // Restore to original position
+      const target = new THREE.Vector3(...position);
+      groupRef.current.position.lerp(target, delta * 2);
+    }
   });
 
   return (
-    <mesh
-      ref={podRef as React.RefObject<THREE.Mesh>}
-      position={position}
-      name={`Pod_${agent.charAt(0).toUpperCase() + agent.slice(1)}`}
-    >
-      {GEOMETRY_CONFIG[agent]}
-      <MeshDistortMaterial
-        ref={matRef as any}
-        color={color}
-        emissive={color}
-        emissiveIntensity={emissiveIntensity}
-        distort={distortFactor}
-        speed={hasViolation ? 8 : status === 'thinking' ? 3 : 0.5}
-        roughness={0.1}
-        metalness={0.8}
-        transparent
-        opacity={status === 'idle' ? 0.7 : 1.0}
+    <group ref={groupRef} position={position}>
+      {/* Internal glow light — lives inside the fractal */}
+      <pointLight
+        ref={lightRef}
+        color={baseColor}
+        intensity={0.4}
+        distance={3.5}
+        decay={2}
       />
-    </mesh>
+
+      {/* Raymarched fractal pod */}
+      <mesh
+        ref={podRef as React.RefObject<THREE.Mesh>}
+        geometry={SPHERE_GEO}
+        name={`Pod_${agent}`}
+      >
+        <cognitionShaderMaterial
+          ref={matRef}
+          key={CognitionShaderMaterial.key}
+          uTime={0}
+          uTension={0}
+          uAgentType={agentType}
+          uColor={baseColor}
+          uConverge={0}
+          uInvModelMatrix={invModelMatrix}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.FrontSide}
+        />
+      </mesh>
+    </group>
   );
 }

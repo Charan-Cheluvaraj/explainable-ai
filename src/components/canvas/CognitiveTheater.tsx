@@ -16,7 +16,7 @@
  * STRICT: Spline objects are accessed via THREE object refs (mutated directly).
  */
 
-import React, { useRef, Suspense, useEffect } from 'react';
+import React, { useRef, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   OrbitControls,
@@ -39,7 +39,6 @@ import {
   useVisualState,
   useAgents,
   useTensionVariance,
-  TENSION_THRESHOLDS,
 } from '../../store/useCognitionStore';
 import { CognitionGraph } from './CognitionGraph';
 
