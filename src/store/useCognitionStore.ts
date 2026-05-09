@@ -34,6 +34,7 @@ interface CognitionStore {
   isDebating: boolean;
   round: number;
   lastQuery: string;
+  synthesisResult: string;
   violations: ConstitutionViolation[];
   
   // Actions
@@ -52,6 +53,7 @@ const INITIAL_STATE = {
   isDebating: false,
   round: 0,
   lastQuery: '',
+  synthesisResult: '',
   violations: [],
 };
 
@@ -62,6 +64,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
     set({ 
       isDebating: true, 
       lastQuery: query, 
+      synthesisResult: '',
       round: 1,
       agents: {
         technocrat: { id: 'technocrat', status: 'thinking', confidence: 1.0, lastThought: '' },
@@ -74,10 +77,8 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       const response = await conductDebate(query);
       
       // Map backend response to store state
-      // Round 1: Initial thoughts
       set({ round: 2 });
-      
-      // Round 2: Brawl (adversarial)
+      // In a real multi-round stream, these would be separate calls or socket events
       set({ round: 3 });
 
       // Final Synthesis
@@ -87,6 +88,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
         isDebating: false,
         tensionVariance: response.tension_variance,
         visualState: synthesis.visual_state,
+        synthesisResult: synthesis.decision,
         agents: {
           technocrat: { 
             id: 'technocrat', 
