@@ -41,6 +41,7 @@ import {
   useTensionVariance,
   TENSION_THRESHOLDS,
 } from '../../store/useCognitionStore';
+import { CognitionGraph } from './CognitionGraph';
 
 // ─────────────────────────────────────────────────────────────
 // Camera Rig — Theatre.js choreography integration point
@@ -185,6 +186,9 @@ function ParliamentScene() {
         position={[3.5, 0, 0]}
         podRef={inqRef as any}
       />
+
+      {/* Force-directed reasoning web */}
+      <CognitionGraph />
 
       {/* Camera choreography */}
       <CameraRig />

@@ -25,6 +25,13 @@ import {
   useViolations,
 } from '../../store/useCognitionStore';
 
+const AGENT_COLORS: Record<string, string> = {
+  technocrat: '#00F2FF',
+  humanist:   '#FF4D8D',
+  inquisitor: '#FFD700',
+  judge:      '#C4B5FD',
+};
+
 // ─────────────────────────────────────────────────────────────
 // Visual State Badge
 // ─────────────────────────────────────────────────────────────
@@ -107,12 +114,6 @@ function TensionMeter() {
 // ─────────────────────────────────────────────────────────────
 // Agent Status Pills
 // ─────────────────────────────────────────────────────────────
-
-const AGENT_COLORS: Record<string, string> = {
-  technocrat: '#00F2FF',
-  humanist:   '#FF4D8D',
-  inquisitor: '#FFD700',
-};
 
 const STATUS_ICONS: Record<string, string> = {
   idle:       '○',
@@ -245,12 +246,80 @@ function QueryInput() {
     if (!query.trim() || isDebating) return;
     startDebate(query);
     // TODO: POST to /debate endpoint, then call hydrateFromDebateResponse()
-    // Simulated for now:
+    
+    // Simulated dummy data for XAI graph
     setTimeout(() => {
-      useCognitionStore.getState().setTensionVariance(0.18);
+      useCognitionStore.getState().hydrateFromDebateResponse({
+        tensionVariance: 0.18,
+        visualState: 'CRISIS',
+        logicNodes: [
+          { id: 't1', label: 'Optimize System', agent: 'technocrat', weight: 0.9, confidence: 0.9, hasViolation: true },
+          { id: 'h1', label: 'Privacy Risk', agent: 'humanist', weight: 0.8, confidence: 0.8, hasViolation: false },
+          { id: 'i1', label: 'Long-term Fail', agent: 'inquisitor', weight: 0.6, confidence: 0.7, hasViolation: false }
+        ],
+        reasoningEdges: [
+          { source: 't1', target: 'h1', strength: 0.9, type: 'contradicts' },
+          { source: 'h1', target: 'i1', strength: 0.6, type: 'supports' }
+        ],
+        activeConstitutionLaws: ['LAW_1_ETHICAL_PRIMACY'],
+        violations: [{ law: 'LAW_1_ETHICAL_PRIMACY', nodeId: 't1', nodeLabel: 'Optimize System', penaltyApplied: 0.5 }],
+        dissenters: [],
+        attributionMap: {
+          't1': [{ word: 'fast', impact: 0.9 }, { word: 'system', impact: 0.7 }],
+          'h1': [{ word: 'users', impact: 0.9 }],
+          'i1': [{ word: 'risk', impact: 0.8 }]
+        }
+      });
       useCognitionStore.getState().endDebate();
     }, 4000);
   };
+
+  const hoveredNodeId = useCognitionStore(s => s.hoveredNodeId);
+  const attributionMap = useCognitionStore(s => s.attributionMap);
+  const lastQuery = useCognitionStore(s => s.lastQuery);
+  const nodes = useCognitionStore(s => s.cognitionGraph.nodes);
+
+  // If we have a query submitted, show the Semantic XAI Display instead of input
+  if (lastQuery) {
+    const words = lastQuery.split(' ');
+    
+    // Find active attributions based on hover
+    let activeHighlights: Record<string, { impact: number, color: string }> = {};
+    if (hoveredNodeId && attributionMap[hoveredNodeId]) {
+      const node = nodes.find(n => n.id === hoveredNodeId);
+      const color = node ? AGENT_COLORS[node.agent] : '#fff';
+      attributionMap[hoveredNodeId].forEach(attr => {
+        activeHighlights[attr.word.toLowerCase()] = { impact: attr.impact, color };
+      });
+    }
+
+    return (
+      <div style={{
+        borderTop: '1px solid #ffffff0a',
+        paddingTop: '12px',
+        fontSize: '13px',
+        lineHeight: 1.6,
+        color: '#aaa',
+      }}>
+        {words.map((word, i) => {
+          const cleanWord = word.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const highlight = activeHighlights[cleanWord];
+          
+          return (
+            <span key={i} style={{
+              marginRight: '4px',
+              color: highlight ? highlight.color : 'inherit',
+              textShadow: highlight ? `0 0 ${highlight.impact * 10}px ${highlight.color}` : 'none',
+              transition: 'all 0.3s ease',
+              display: 'inline-block'
+            }}>
+              {word}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div style={{

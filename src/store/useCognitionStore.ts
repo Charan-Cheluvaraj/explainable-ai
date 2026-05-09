@@ -61,6 +61,13 @@ export interface ConstitutionViolation {
   penaltyApplied: number;
 }
 
+/** Semantic attribution map mapping node ID to query words and impact */
+export interface AttributionScore {
+  word: string;
+  impact: number; // 0.0 to 1.0
+}
+export type AttributionMap = Record<string, AttributionScore[]>;
+
 /** Dissenting opinion preserved by Law 2 */
 export interface DissenterRecord {
   agent: 'technocrat' | 'humanist' | 'inquisitor';
@@ -102,6 +109,10 @@ interface CognitionStore {
   violations: ConstitutionViolation[];
   dissenters: DissenterRecord[];
 
+  // ── XAI & Attribution ─────────────────────────────────────
+  hoveredNodeId: string | null;
+  attributionMap: AttributionMap;
+
   // ── Debate Lifecycle ──────────────────────────────────────
   round: 0 | 1 | 2 | 3;
   isDebating: boolean;
@@ -123,6 +134,8 @@ interface CognitionStore {
   endDebate: () => void;
   setCameraTarget: (target: CognitionStore['cameraTarget']) => void;
 
+  setHoveredNodeId: (id: string | null) => void;
+
   /** Bulk update from a backend /debate response JSON */
   hydrateFromDebateResponse: (payload: DebateResponsePayload) => void;
 
@@ -142,6 +155,7 @@ export interface DebateResponsePayload {
   activeConstitutionLaws: ConstitutionLaw[];
   violations: ConstitutionViolation[];
   dissenters: DissenterRecord[];
+  attributionMap?: AttributionMap;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -174,6 +188,8 @@ const INITIAL_STATE = {
   isDebating: false,
   lastQuery: '',
   cameraTarget: 'center' as CognitionStore['cameraTarget'],
+  hoveredNodeId: null as string | null,
+  attributionMap: {} as AttributionMap,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -233,9 +249,11 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
 
   setCameraTarget: (target) => set({ cameraTarget: target }),
 
+  setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
+
   hydrateFromDebateResponse: (payload) => {
     const { tensionVariance, visualState, logicNodes, reasoningEdges,
-      activeConstitutionLaws, violations, dissenters } = payload;
+      activeConstitutionLaws, violations, dissenters, attributionMap = {} } = payload;
     set({
       tensionVariance,
       visualState,
@@ -243,6 +261,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       activeConstitutionLaws,
       violations,
       dissenters,
+      attributionMap,
       cameraTarget: visualState === 'CRISIS' ? 'technocrat' : 'center',
     });
   },
