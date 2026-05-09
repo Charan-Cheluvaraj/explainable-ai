@@ -15,7 +15,7 @@ export interface DebateRequest {
 
 export interface AgentResult {
   decision: string;
-  confidence: float;
+  confidence: number;
   logic_nodes: any[];
   attribution_map: any[];
   internal_critique: string;

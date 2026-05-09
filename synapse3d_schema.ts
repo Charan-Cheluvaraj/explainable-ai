@@ -1,9 +1,8 @@
-/**
  * synapse3d_schema.ts — Canonical Type Contracts for Synapse3D
  *
- * Single source of truth shared between the Python backend, the 3D
- * fractal engine, and any future frontend consumers. All fields map
- * 1-to-1 to the Pydantic models in orchestrator.py.
+ * Single source of truth shared between the Python backend and the 
+ * Cinematic 2D frontend. All fields map 1-to-1 to the Pydantic 
+ * models in orchestrator.py.
  */
 
 // ──────────────────────────────────────────────────────────
@@ -52,7 +51,7 @@ export interface LogicNode {
   weight: number;                   // 0.0 → 1.0
   category: NodeCategory;
   source_id?: string;               // Must cite if weight > 0.7
-  citation?: CitationEmbed;         // Full citation embed for 3D overlay
+  citation?: CitationEmbed;         // Full citation embed for HUD overlay
   constitutional_violation?: boolean; // Set by Judge under Law 1
 }
 
@@ -77,7 +76,7 @@ export interface Synapse3DResponse {
   dissenting_opinion?: string;      // Required by Law 2 when tension is high
   is_crisis?: boolean;
   crisis_reason?: string;
-  visual_state?: VisualState;       // Drives 3D fractal animation state
+  visual_state?: VisualState;       // Drives 2D Cinematic animation state
   constitution_report?: ConstitutionReport;
 }
 
@@ -117,8 +116,8 @@ export interface DebateState {
 // ──────────────────────────────────────────────────────────
 
 export const TENSION_THRESHOLDS = {
-  CRISIS:  0.15,   // σ² > 0.15 → CRISIS (fractals pulse red)
-  WARNING: 0.07,   // σ² > 0.07 → WARNING (fractals pulse amber)
+  CRISIS:  0.15,   // σ² > 0.15 → CRISIS (HUD pulses red)
+  WARNING: 0.07,   // σ² > 0.07 → WARNING (HUD pulses amber)
   STABLE:  0.00,   // σ² ≤ 0.07 → STABLE
 } as const;
 
