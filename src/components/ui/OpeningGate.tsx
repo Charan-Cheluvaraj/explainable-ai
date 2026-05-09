@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { motion } from 'framer-motion';
+
 import { useCognitionStore } from '../../store/useCognitionStore';
 
 export const OpeningGate: React.FC = () => {

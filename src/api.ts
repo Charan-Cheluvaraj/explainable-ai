@@ -16,14 +16,14 @@ export interface DebateRequest {
 export interface AgentResult {
   decision: string;
   confidence: number;
-  logic_nodes: any[];
-  attribution_map: any[];
+  logic_nodes: unknown[];
+  attribution_map: unknown[];
   internal_critique: string;
   consensus_stability?: number;
   dissenting_opinion?: string;
   is_crisis?: boolean;
   visual_state: 'STABLE' | 'WARNING' | 'CRISIS';
-  constitution_report?: any;
+  constitution_report?: unknown;
 }
 
 export interface DebateResponse {

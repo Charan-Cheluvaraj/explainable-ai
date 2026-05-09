@@ -8,7 +8,9 @@ interface ParliamentCanvasProps {
 }
 
 // ── Critique Packet Component ────────────────────────────────
-const CritiquePacket = ({ from, to, color, delay }: { from: {x: number, y: number}, to: {x: number, y: number}, color: string, delay: number }) => (
+const CritiquePacket = ({ from, to, color, delay }: { from: {x: number, y: number}, to: {x: number, y: number}, color: string, delay: number }) => {
+  const [repeatDelay] = useState(() => Math.random() * 2);
+  return (
   <motion.div
     className="absolute w-1.5 h-1.5 rounded-full z-50"
     style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }}
@@ -24,44 +26,52 @@ const CritiquePacket = ({ from, to, color, delay }: { from: {x: number, y: numbe
       delay, 
       repeat: Infinity, 
       ease: "easeInOut",
-      repeatDelay: Math.random() * 2
+      repeatDelay
     }}
   />
-);
+  );
+};
+// Positions for nodes (%)
+const positions = {
+  judge: { x: 50, y: 50 },
+  technocrat: { x: 25, y: 30 },
+  humanist: { x: 75, y: 30 },
+  inquisitor: { x: 50, y: 75 },
+};
 
 export const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({ isVisible, onAnimationComplete }) => {
-  const { debatePhase, visualState, tensionVariance } = useCognitionStore();
+  const { debatePhase, visualState } = useCognitionStore();
   
   // Local phase for initial intro
   const [introPhase, setIntroPhase] = useState(0);
 
   useEffect(() => {
+    let t0: ReturnType<typeof setTimeout>;
+    let t1: ReturnType<typeof setTimeout>;
+    let t2: ReturnType<typeof setTimeout>;
+    let t3: ReturnType<typeof setTimeout>;
+    let t4: ReturnType<typeof setTimeout>;
+
     if (isVisible) {
-      setIntroPhase(1);
-      const t1 = setTimeout(() => setIntroPhase(2), 700);
-      const t2 = setTimeout(() => setIntroPhase(3), 1100);
-      const t3 = setTimeout(() => {
+      t0 = setTimeout(() => setIntroPhase(1), 0);
+      t1 = setTimeout(() => setIntroPhase(2), 700);
+      t2 = setTimeout(() => setIntroPhase(3), 1100);
+      t3 = setTimeout(() => {
         setIntroPhase(4);
         onAnimationComplete?.();
       }, 1700);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-      };
     } else {
-      setIntroPhase(0);
+      t4 = setTimeout(() => setIntroPhase(0), 0);
     }
-  }, [isVisible, onAnimationComplete]);
 
-  // Positions for nodes (%)
-  const positions = {
-    judge: { x: 50, y: 50 },
-    technocrat: { x: 25, y: 30 },
-    humanist: { x: 75, y: 30 },
-    inquisitor: { x: 50, y: 75 },
-  };
+    return () => {
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [isVisible, onAnimationComplete]);
 
   const packets = useMemo(() => [
     { from: positions.technocrat, to: positions.humanist, color: '#38bdf8', delay: 0 },

@@ -1,39 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCognitionStore } from './store/useCognitionStore';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ArrowUp, Cpu, Heart, Search, AlertTriangle, Terminal, ShieldAlert } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { ParliamentGraph } from './components/ParliamentGraph';
 import { OpeningGate } from './components/ui/OpeningGate';
-import { TacticalTelemetry } from './components/ui/TacticalTelemetry';
 import { StringTune } from '@fiddle-digital/string-tune';
 
 
 // ─────────────────────────────────────────────────────────────
-// Agent Config
+// Prompt Input Component
 // ─────────────────────────────────────────────────────────────
-
-const AGENT_CONFIG = {
-  technocrat: {
-    name: 'TECHNOCRAT',
-    icon: Cpu,
-    color: '#38bdf8',
-    label: 'Logic & Efficiency',
-  },
-  humanist: {
-    name: 'HUMANIST',
-    icon: Heart,
-    color: '#fb7185',
-    label: 'Ethics & Society',
-  },
-  inquisitor: {
-    name: 'INQUISITOR',
-    icon: Search,
-    color: '#fbbf24',
-    label: 'Risk & Security',
-  },
-} as const;
-
-type AgentId = keyof typeof AGENT_CONFIG;
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
@@ -152,7 +128,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!lastQuery) setHasSubmitted(false);
+    if (!lastQuery) {
+      const timer = setTimeout(() => setHasSubmitted(false), 0);
+      return () => clearTimeout(timer);
+    }
   }, [lastQuery]);
 
   const handleSubmit = (query: string) => {

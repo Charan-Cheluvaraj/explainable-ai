@@ -4,7 +4,6 @@
 
 import { create } from 'zustand';
 import { conductDebate } from '../api';
-import type { DebateResponse } from '../api';
 
 export type AgentStatus = 'idle' | 'thinking' | 'speaking' | 'dissenting';
 export type VisualState = 'STABLE' | 'WARNING' | 'CRISIS';
@@ -127,22 +126,23 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
             lastThought: response.round_2_responses['Inquisitor']?.decision || ''
           },
         },
-        violations: synthesis.constitution_report?.violations.map((v: any) => ({
+        violations: (synthesis.constitution_report as { violations: { law: string, agent_id: string, reason: string }[] })?.violations?.map(v => ({
           law: v.law,
           agentId: v.agent_id,
           description: v.reason
         })) || []
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Debate failed:', error);
       phaseTimers.forEach(clearTimeout);
+      const errorMessage = error instanceof Error ? error.message : 'API connection refused or internal server error.';
       set({ 
         isDebating: false, 
         debatePhase: 'reveal',
         visualState: 'CRISIS',
         tensionVariance: 1.0,
-        synthesisResult: `ERROR: The Synapse Parliament failed to reach a synthesis. \n\nReason: ${error.message || 'API connection refused or internal server error.'}\n\nPlease check that the orchestrator backend is running and API keys are valid.`,
+        synthesisResult: `ERROR: The Synapse Parliament failed to reach a synthesis. \n\nReason: ${errorMessage}\n\nPlease check that the orchestrator backend is running and API keys are valid.`,
         agents: {
           technocrat: { id: 'technocrat', status: 'idle', confidence: 0, lastThought: '' },
           humanist: { id: 'humanist', status: 'idle', confidence: 0, lastThought: '' },

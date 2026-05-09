@@ -25,12 +25,12 @@ const TypewriterText = ({ text }: { text: string }) => {
   const [displayedText, setDisplayedText] = useState('');
   const textRef = useRef(text);
   const indexRef = useRef(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     textRef.current = text;
     indexRef.current = 0;
-    setDisplayedText('');
+    const t0 = setTimeout(() => setDisplayedText(''), 0);
 
     const animate = () => {
       if (indexRef.current < textRef.current.length) {
@@ -40,7 +40,10 @@ const TypewriterText = ({ text }: { text: string }) => {
       }
     };
     rafRef.current = requestAnimationFrame(animate);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => { 
+      clearTimeout(t0);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current); 
+    };
   }, [text]);
 
   return <span>{displayedText}</span>;
@@ -134,23 +137,24 @@ const RadialBurst = () => (
 
 export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebating, result }) => {
   const [phase, setPhase] = useState(1);
-  const [dim, setDim] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const [dim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const resetStore = useCognitionStore(s => s.reset);
 
   useEffect(() => {
     if (isDebating) {
-      setPhase(1);
+      const t0 = setTimeout(() => setPhase(1), 0);
       const t1 = setTimeout(() => setPhase(2), 600); 
       const t2 = setTimeout(() => setPhase(3), 1200); 
       const t3 = setTimeout(() => setPhase(4), 1800);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+      return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [isDebating]);
 
   useEffect(() => {
     // Phase 5 trigger: debate must be finished with a result
     if (!isDebating && result && result.length > 0) {
-      setPhase(5);
+      const t = setTimeout(() => setPhase(5), 0);
+      return () => clearTimeout(t);
     }
   }, [isDebating, result]);
 

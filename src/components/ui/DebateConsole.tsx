@@ -16,14 +16,8 @@
  *   Risk/Inquisitor:  #FFD700
  */
 
-import React, { useState } from 'react';
-import {
-  useCognitionStore,
-  useVisualState,
-  useTensionVariance,
-  useAgents,
-  useViolations,
-} from '../../store/useCognitionStore';
+import { useState } from 'react';
+import { useCognitionStore } from '../../store/useCognitionStore';
 
 const AGENT_COLORS: Record<string, string> = {
   technocrat: '#00F2FF',
@@ -43,7 +37,7 @@ const STATE_CONFIG = {
 };
 
 function VisualStateBadge() {
-  const visualState = useVisualState();
+  const visualState = useCognitionStore(s => s.visualState);
   const cfg = STATE_CONFIG[visualState];
 
   return (
@@ -72,7 +66,7 @@ function VisualStateBadge() {
 // ─────────────────────────────────────────────────────────────
 
 function TensionMeter() {
-  const sigma2 = useTensionVariance();
+  const sigma2 = useCognitionStore(s => s.tensionVariance);
   const pct = Math.min(sigma2 / 0.3, 1.0) * 100; // 0.3 → full red
 
   const barColor = sigma2 >= 0.15 ? '#FF4D8D'
@@ -123,15 +117,16 @@ const STATUS_ICONS: Record<string, string> = {
 };
 
 function AgentPills() {
-  const agents = useAgents();
+  const agents = useCognitionStore(s => s.agents);
 
   return (
     <div style={{ display: 'flex', gap: '8px' }}>
-      {(Object.entries(agents) as [string, string][]).map(([agent, status]) => {
-        const color = AGENT_COLORS[agent];
+      {Object.entries(agents).map(([agentId, agentData]) => {
+        const color = AGENT_COLORS[agentId];
+        const status = agentData.status;
         const isActive = status !== 'idle';
         return (
-          <div key={agent} style={{
+          <div key={agentId} style={{
             display: 'flex', alignItems: 'center', gap: '5px',
             padding: '4px 10px',
             border: `1px solid ${isActive ? color : '#333'}`,
@@ -153,7 +148,7 @@ function AgentPills() {
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
             }}>
-              {agent}
+              {agentId}
             </span>
           </div>
         );
@@ -167,7 +162,7 @@ function AgentPills() {
 // ─────────────────────────────────────────────────────────────
 
 function ConstitutionTicker() {
-  const laws = useCognitionStore((s) => s.activeConstitutionLaws);
+  const laws = useCognitionStore((s) => (s as { activeConstitutionLaws?: string[] }).activeConstitutionLaws || []);
   if (laws.length === 0) return null;
 
   return (
@@ -179,7 +174,7 @@ function ConstitutionTicker() {
       <span style={{ color: '#555', fontSize: '9px', letterSpacing: '0.1em' }}>
         ACTIVE CONSTITUTION LAWS
       </span>
-      {laws.map((law) => (
+      {laws.map((law: string) => (
         <div key={law} style={{
           display: 'flex', alignItems: 'center', gap: '6px',
         }}>
@@ -198,7 +193,7 @@ function ConstitutionTicker() {
 // ─────────────────────────────────────────────────────────────
 
 function ViolationLog() {
-  const violations = useViolations();
+  const violations = useCognitionStore(s => s.violations);
   if (violations.length === 0) return null;
 
   return (
@@ -221,10 +216,10 @@ function ViolationLog() {
           <span style={{ color: '#FF4D8D', fontSize: '10px', marginTop: '1px' }}>✗</span>
           <div>
             <div style={{ color: '#FF4D8D', fontSize: '10px', fontWeight: 600 }}>
-              {v.nodeLabel}
+              {v.agentId}
             </div>
             <div style={{ color: '#FF4D8D66', fontSize: '9px', marginTop: '2px' }}>
-              {v.law.replace(/_/g, ' ')} — penalty {v.penaltyApplied.toFixed(2)}
+              {v.law.replace(/_/g, ' ')}
             </div>
           </div>
         </div>
@@ -248,47 +243,26 @@ function QueryInput() {
     // TODO: POST to /debate endpoint, then call hydrateFromDebateResponse()
     
     // Simulated dummy data for XAI graph
-    setTimeout(() => {
-      useCognitionStore.getState().hydrateFromDebateResponse({
-        tensionVariance: 0.18,
-        visualState: 'CRISIS',
-        logicNodes: [
-          { id: 't1', label: 'Optimize System', agent: 'technocrat', weight: 0.9, confidence: 0.9, hasViolation: true },
-          { id: 'h1', label: 'Privacy Risk', agent: 'humanist', weight: 0.8, confidence: 0.8, hasViolation: false },
-          { id: 'i1', label: 'Long-term Fail', agent: 'inquisitor', weight: 0.6, confidence: 0.7, hasViolation: false }
-        ],
-        reasoningEdges: [
-          { source: 't1', target: 'h1', strength: 0.9, type: 'contradicts' },
-          { source: 'h1', target: 'i1', strength: 0.6, type: 'supports' }
-        ],
-        activeConstitutionLaws: ['LAW_1_ETHICAL_PRIMACY'],
-        violations: [{ law: 'LAW_1_ETHICAL_PRIMACY', nodeId: 't1', nodeLabel: 'Optimize System', penaltyApplied: 0.5 }],
-        dissenters: [],
-        attributionMap: {
-          't1': [{ word: 'fast', impact: 0.9 }, { word: 'system', impact: 0.7 }],
-          'h1': [{ word: 'users', impact: 0.9 }],
-          'i1': [{ word: 'risk', impact: 0.8 }]
-        }
-      });
-      useCognitionStore.getState().endDebate();
-    }, 4000);
+    // setTimeout(() => {
+    //   useCognitionStore.getState().hydrateFromDebateResponse(...);
+    // }, 4000);
   };
 
-  const hoveredNodeId = useCognitionStore(s => s.hoveredNodeId);
-  const attributionMap = useCognitionStore(s => s.attributionMap);
+  const hoveredNodeId = useCognitionStore(s => (s as { hoveredNodeId?: string }).hoveredNodeId);
+  const attributionMap = useCognitionStore(s => (s as { attributionMap?: Record<string, { word: string; impact: number }[]> }).attributionMap);
   const lastQuery = useCognitionStore(s => s.lastQuery);
-  const nodes = useCognitionStore(s => s.cognitionGraph.nodes);
+  const nodes = useCognitionStore(s => (s as { cognitionGraph?: { nodes: { id: string; agent: string }[] } }).cognitionGraph?.nodes || []);
 
   // If we have a query submitted, show the Semantic XAI Display instead of input
   if (lastQuery) {
     const words = lastQuery.split(' ');
     
     // Find active attributions based on hover
-    let activeHighlights: Record<string, { impact: number, color: string }> = {};
-    if (hoveredNodeId && attributionMap[hoveredNodeId]) {
-      const node = nodes.find(n => n.id === hoveredNodeId);
+    const activeHighlights: Record<string, { impact: number, color: string }> = {};
+    if (hoveredNodeId && attributionMap && attributionMap[hoveredNodeId]) {
+      const node = nodes.find((n: { id: string; agent: string }) => n.id === hoveredNodeId);
       const color = node ? AGENT_COLORS[node.agent] : '#fff';
-      attributionMap[hoveredNodeId].forEach(attr => {
+      attributionMap[hoveredNodeId].forEach((attr: { word: string; impact: number }) => {
         activeHighlights[attr.word.toLowerCase()] = { impact: attr.impact, color };
       });
     }
