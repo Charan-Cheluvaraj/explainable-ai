@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { ParliamentCanvas } from './components/ParliamentCanvas';
+import { OpeningGate } from './components/ui/OpeningGate';
 
 // ─────────────────────────────────────────────────────────────
 // Agent Config
@@ -260,6 +261,7 @@ function StatusBar() {
 export default function App() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showCanvas, setShowCanvas] = useState(false);
+  const hasEntered = useCognitionStore((s) => s.hasEntered);
   const isDebating = useCognitionStore((s) => s.isDebating);
   const lastQuery = useCognitionStore((s) => s.lastQuery);
   const startDebate = useCognitionStore((s) => s.startDebate);
@@ -281,7 +283,18 @@ export default function App() {
     <div className="app-root">
       <LayoutGroup>
         <AnimatePresence mode="wait">
-          {!hasSubmitted ? (
+          {!hasEntered ? (
+            <motion.div
+              key="gate"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+              className="w-full h-screen"
+            >
+              <OpeningGate />
+            </motion.div>
+          ) : !hasSubmitted ? (
             <motion.div
               key="landing"
               className="landing"

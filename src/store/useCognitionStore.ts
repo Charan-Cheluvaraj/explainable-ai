@@ -35,8 +35,10 @@ interface CognitionStore {
   round: number;
   lastQuery: string;
   violations: ConstitutionViolation[];
+  hasEntered: boolean;
   
   // Actions
+  enterParliament: () => void;
   startDebate: (query: string) => Promise<void>;
   reset: () => void;
 }
@@ -53,6 +55,7 @@ const INITIAL_STATE = {
   round: 0,
   lastQuery: '',
   violations: [],
+  hasEntered: false,
 };
 
 export const useCognitionStore = create<CognitionStore>((set, get) => ({
@@ -119,6 +122,8 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       set({ isDebating: false });
     }
   },
+
+  enterParliament: () => set({ hasEntered: true }),
 
   reset: () => set(INITIAL_STATE),
 }));
