@@ -20,7 +20,8 @@ load_dotenv()
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from groq import AsyncGroq
 
 from constitution import (
@@ -46,11 +47,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "REPLACE_ME"))
-groq_client  = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
-memory_svc   = MemoryService()
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", "REPLACE_ME"))
+groq_client   = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
+memory_svc    = MemoryService()
 
-GEMINI_MODEL = "gemini-2.0-flash-lite"
+GEMINI_MODEL = "gemini-1.5-flash"
 GROQ_MODEL   = "llama3-70b-8192"   # swap to gpt-oss-120b when available on Groq
 
 # ─────────────────────────────────────────────────────────────
@@ -184,25 +185,26 @@ async def call_gemini_agent(
     retry: int = 1,
 ) -> AgentResult:
     """
-    Fires a structured-output request to Gemini Flash-Lite.
+    Fires a structured-output request to Gemini Flash-Lite via the new google-genai SDK.
     Retries once on schema failure; emits FallbackResponse on total failure.
     """
-    model = genai.GenerativeModel(
-        model_name=GEMINI_MODEL,
+    config = genai_types.GenerateContentConfig(
         system_instruction=system_prompt,
-        generation_config=genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=Synapse3DResponse,
-        ),
+        response_mime_type="application/json",
+        response_schema=Synapse3DResponse,
     )
     try:
-        response = await model.generate_content_async(user_prompt)
+        response = await gemini_client.aio.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_prompt,
+            config=config,
+        )
         return Synapse3DResponse.model_validate_json(response.text)
     except Exception as exc:
         if retry > 0:
-            print(f"  ⚠  [{persona_name}] Schema failure — retrying. ({exc})")
+            print(f"  [!] [{persona_name}] Schema failure - retrying. ({exc})")
             return await call_gemini_agent(persona_name, system_prompt, user_prompt, retry=0)
-        print(f"  ✗  [{persona_name}] Fatal reasoning failure.")
+        print(f"  [X] [{persona_name}] Fatal reasoning failure. ({exc})")
         return FallbackResponse()
 
 
@@ -227,7 +229,7 @@ async def call_groq_judge(system_prompt: str, user_prompt: str) -> AgentResult:
         )
         return Synapse3DResponse.model_validate_json(resp.choices[0].message.content)
     except Exception as exc:
-        print(f"  ✗  [Judge] Fatal reasoning failure. ({exc})")
+        print(f"  [X] [Judge] Fatal reasoning failure. ({exc})")
         return FallbackResponse()
 
 

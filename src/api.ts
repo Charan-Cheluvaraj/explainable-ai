@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+// Empty base URL → calls are relative (e.g. /debate)
+// Vite dev server proxies /debate → http://localhost:8000
+// No CORS issues in development.
+const API_BASE_URL = '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

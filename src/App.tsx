@@ -4,6 +4,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 import { ParliamentGraph } from './components/ParliamentGraph';
 import { OpeningGate } from './components/ui/OpeningGate';
+import { MissionControlSidebar } from './components/MissionControlSidebar';
 import { StringTune } from '@fiddle-digital/string-tune';
 
 
@@ -117,6 +118,13 @@ export default function App() {
   const lastQuery = useCognitionStore((s) => s.lastQuery);
   const synthesisResult = useCognitionStore((s) => s.synthesisResult);
   const startDebate = useCognitionStore((s) => s.startDebate);
+  
+  const agents = useCognitionStore((s) => s.agents);
+  const tensionVariance = useCognitionStore((s) => s.tensionVariance);
+  const visualState = useCognitionStore((s) => s.visualState);
+  const violations = useCognitionStore((s) => s.violations);
+  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Initialize StringTune for high-performance scroll/cursor effects
@@ -202,6 +210,19 @@ export default function App() {
           )}
         </AnimatePresence>
       </LayoutGroup>
+
+      {hasEntered && (
+        <MissionControlSidebar
+          isOpen={isSidebarOpen}
+          setIsOpen={setIsSidebarOpen}
+          isDebating={isDebating}
+          agents={agents}
+          tensionVariance={tensionVariance}
+          visualState={visualState}
+          lastQuery={lastQuery}
+          violations={violations}
+        />
+      )}
 
       <div className="dot-grid" />
     </div>
