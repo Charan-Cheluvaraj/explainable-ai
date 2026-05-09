@@ -1,8 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCognitionStore } from './store/useCognitionStore';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Cpu, Heart, Search, AlertTriangle, Terminal, ShieldAlert } from 'lucide-react';
 import { ParliamentGraph } from './components/ParliamentGraph';
+import { OpeningGate } from './components/ui/OpeningGate';
+import { TacticalTelemetry } from './components/ui/TacticalTelemetry';
+
+// ─────────────────────────────────────────────────────────────
+// Agent Config
+// ─────────────────────────────────────────────────────────────
+
+const AGENT_CONFIG = {
+  technocrat: {
+    name: 'TECHNOCRAT',
+    icon: Cpu,
+    color: '#38bdf8',
+    label: 'Logic & Efficiency',
+  },
+  humanist: {
+    name: 'HUMANIST',
+    icon: Heart,
+    color: '#fb7185',
+    label: 'Ethics & Society',
+  },
+  inquisitor: {
+    name: 'INQUISITOR',
+    icon: Search,
+    color: '#fbbf24',
+    label: 'Risk & Security',
+  },
+} as const;
+
+type AgentId = keyof typeof AGENT_CONFIG;
+>>>>>>> 98e7422c1c123edfd0b73afe9f9acd46ca166f64
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
@@ -91,6 +121,7 @@ function PromptInput({
 
 export default function App() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const hasEntered = useCognitionStore((s) => s.hasEntered);
   const isDebating = useCognitionStore((s) => s.isDebating);
   const lastQuery = useCognitionStore((s) => s.lastQuery);
   const synthesisResult = useCognitionStore((s) => s.synthesisResult);
@@ -105,7 +136,18 @@ export default function App() {
     <div className="app-root">
       <LayoutGroup>
         <AnimatePresence mode="wait">
-          {!hasSubmitted ? (
+          {!hasEntered ? (
+            <motion.div
+              key="gate"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+              className="w-full h-screen"
+            >
+              <OpeningGate />
+            </motion.div>
+          ) : !hasSubmitted ? (
             <motion.div
               key="landing"
               className="landing"
