@@ -1,15 +1,12 @@
 /* ─────────────────────────────────────────────────────────────
-   Synapse3D Global Styles
-   Design Tokens:
-     Surface:    #0A0A0B
-     Logic:      #00F2FF (Technocrat)
-     Ethics:     #FF4D8D (Humanist)
-     Risk:       #FFD700 (Inquisitor)
-   Typography:  Geist (primary), Geist Mono (code/data)
-   Sub-pixel rendering enforced throughout.
-───────────────────────────────────────────────────────────── */
+   Synapse3D Global Styles — Cinematic 2D Edition
+   ───────────────────────────────────────────────────────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ── Reset & Box Model ────────────────────────────────────── */
 *, *::before, *::after {
@@ -20,25 +17,19 @@
 
 /* ── Root Variables ───────────────────────────────────────── */
 :root {
-  /* Design tokens */
-  --surface:          #0A0A0B;
-  --surface-elevated: #111113;
+  --surface:          #050505;
+  --surface-elevated: #0a0a0a;
   --color-logic:      #00F2FF;
   --color-ethics:     #FF4D8D;
   --color-risk:       #FFD700;
-  --color-judge:      #C4B5FD;   /* Sovereign accent — muted violet */
-  --border-subtle:    rgba(255, 255, 255, 0.05);
-  --text-primary:     rgba(255, 255, 255, 0.92);
-  --text-secondary:   rgba(255, 255, 255, 0.45);
-  --text-muted:       rgba(255, 255, 255, 0.22);
+  --color-judge:      #C4B5FD;
+  --border-subtle:    rgba(255, 255, 255, 0.08);
+  --text-primary:     rgba(255, 255, 255, 0.95);
+  --text-secondary:   rgba(255, 255, 255, 0.50);
+  --text-muted:       rgba(255, 255, 255, 0.25);
 
-  /* Typography */
   --font-ui:    'Geist', system-ui, -apple-system, sans-serif;
   --font-mono:  'Geist Mono', 'Menlo', monospace;
-
-  /* Motion */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Base Document ────────────────────────────────────────── */
@@ -49,93 +40,40 @@ html, body, #root {
   background: var(--surface);
   color: var(--text-primary);
   font-family: var(--font-ui);
-
-  /* Sub-pixel rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
-/* ── Stage ────────────────────────────────────────────────── */
-.synapse-root {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--surface);
-  /* Prevent layout shift from scrollbar appearance */
-  scrollbar-width: none;
-}
-
-.synapse-root::-webkit-scrollbar {
-  display: none;
-}
-
-/* ── Canvas fill — sits behind all HTML overlays ─────────── */
-canvas {
-  display: block;
-  /* Sub-pixel sharp */
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-}
-
-/* ── Input reset ──────────────────────────────────────────── */
-input, button {
-  font-family: var(--font-ui);
-}
-
-input::placeholder {
-  color: var(--text-muted);
-}
-
-input:focus {
-  border-color: var(--color-logic) !important;
-  box-shadow: 0 0 0 1px var(--color-logic) !important;
-}
-
-/* ── Scrollbar inside panels (if any) ────────────────────── */
-.synapse-panel::-webkit-scrollbar {
-  width: 2px;
-}
-.synapse-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-.synapse-panel::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 1px;
-}
-
-/* ── Utility: Glass surface ───────────────────────────────── */
+/* ── UI Utilities ─────────────────────────────────────────── */
 .glass {
-  background: rgba(10, 10, 11, 0.72);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border-subtle);
 }
 
-/* ── CRISIS pulse animation (applied to root on CRISIS) ──── */
-@keyframes crisis-pulse {
-  0%   { box-shadow: inset 0 0 0px 0px rgba(255, 77, 141, 0); }
-  50%  { box-shadow: inset 0 0 40px 4px rgba(255, 77, 141, 0.08); }
-  100% { box-shadow: inset 0 0 0px 0px rgba(255, 77, 141, 0); }
+.glow-logic { box-shadow: 0 0 20px -5px var(--color-logic); }
+.glow-ethics { box-shadow: 0 0 20px -5px var(--color-ethics); }
+.glow-risk   { box-shadow: 0 0 20px -5px var(--color-risk); }
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
 }
 
-.synapse-root[data-state="CRISIS"] {
-  animation: crisis-pulse 1.2s ease-in-out infinite;
+.animate-pulse-soft {
+  animation: pulse-soft 3s ease-in-out infinite;
 }
 
-/* ── Thinking dots animation ──────────────────────────────── */
-@keyframes blink {
-  0%, 100% { opacity: 0.2; }
-  50%       { opacity: 1; }
+/* Custom scrollbar for data panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-
-.thinking-dot {
-  display: inline-block;
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: blink 1s ease-in-out infinite;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
-.thinking-dot:nth-child(2) { animation-delay: 0.15s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.30s; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
