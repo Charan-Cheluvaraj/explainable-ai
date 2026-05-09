@@ -32,7 +32,6 @@ const AGENT_CONFIG = {
 } as const;
 
 type AgentId = keyof typeof AGENT_CONFIG;
->>>>>>> 98e7422c1c123edfd0b73afe9f9acd46ca166f64
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
