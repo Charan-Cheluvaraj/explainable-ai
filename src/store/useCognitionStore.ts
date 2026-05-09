@@ -3,7 +3,8 @@
  */
 
 import { create } from 'zustand';
-import { conductDebate, DebateResponse } from '../api';
+import { conductDebate } from '../api';
+import type { DebateResponse } from '../api';
 
 export type AgentStatus = 'idle' | 'thinking' | 'speaking' | 'dissenting';
 export type VisualState = 'STABLE' | 'WARNING' | 'CRISIS';

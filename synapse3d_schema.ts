@@ -1,3 +1,4 @@
+/**
  * synapse3d_schema.ts — Canonical Type Contracts for Synapse3D
  *
  * Single source of truth shared between the Python backend and the 
@@ -83,8 +84,8 @@ export interface Synapse3DResponse {
 export interface FallbackResponse {
   decision: 'Reasoning Failure';
   confidence: 0;
-  logic_nodes: [];
-  attribution_map: [];
+  logic_nodes: LogicNode[];
+  attribution_map: AttributionPoint[];
   internal_critique: string;
   visual_state: 'CRISIS';
   reasoning_failure: true;
@@ -141,7 +142,7 @@ export const Synapse3DJsonSchema = {
         properties: {
           label:      { type: "string" },
           weight:     { type: "number", minimum: 0, maximum: 1 },
-          category:   { enum: ["Logic", "Ethics", "Risk"] },
+          category:   { type: "string", enum: ["Logic", "Ethics", "Risk"] },
           source_id:  { type: "string" },
           citation: {
             type: "object",
@@ -174,19 +175,19 @@ export const Synapse3DJsonSchema = {
     dissenting_opinion:   { type: "string" },
     is_crisis:            { type: "boolean" },
     crisis_reason:        { type: "string" },
-    visual_state:         { enum: ["STABLE", "WARNING", "CRISIS"] },
+    visual_state:         { type: "string", enum: ["STABLE", "WARNING", "CRISIS"] },
     constitution_report: {
       type: "object",
       required: ["law_1_status", "law_1_violations", "law_2_status", "law_3_status", "law_3_deweighted_nodes"],
       properties: {
-        law_1_status:         { enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
+        law_1_status:         { type: "string", enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
         law_1_agent_trigger:  { type: "string" },
         law_1_reason:         { type: "string" },
         law_1_violations:     { type: "array", items: { type: "string" } },
-        law_2_status:         { enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
+        law_2_status:         { type: "string", enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
         law_2_agent_trigger:  { type: "string" },
         law_2_reason:         { type: "string" },
-        law_3_status:         { enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
+        law_3_status:         { type: "string", enum: ["SATISFIED", "VIOLATED", "NOT_INVOKED"] },
         law_3_deweighted_nodes: { type: "array", items: { type: "string" } },
         law_3_reason:         { type: "string" },
       },
