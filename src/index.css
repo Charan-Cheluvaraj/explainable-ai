@@ -3,25 +3,34 @@
    ───────────────────────────────────────────────────────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;600&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
 
 @import "tailwindcss";
 
-/* ── Root Variables ───────────────────────────────────────── */
+/* ── Root Variables & Taste Tokens ───────────────────────── */
 :root {
-  --surface:          #0a0a0a;
-  --surface-elevated: #1a1a1a;
-  --surface-border:   #2a2a2a;
-  --color-logic:      #00F2FF;
-  --color-ethics:     #FF4D8D;
-  --color-risk:       #FFD700;
-  --color-judge:      #C4B5FD;
-  --border-subtle:    rgba(255, 255, 255, 0.06);
-  --text-primary:     rgba(255, 255, 255, 0.92);
-  --text-secondary:   rgba(255, 255, 255, 0.50);
-  --text-muted:       rgba(255, 255, 255, 0.22);
+  /* Taste: Pure Dark Surface */
+  --surface:          #050505;
+  --surface-elevated: rgba(10, 10, 10, 0.6);
+  --surface-border:   rgba(255, 255, 255, 0.1);
+  
+  /* Taste: Accent Logic */
+  --color-logic:      oklch(0.8 0.15 200); /* Cyan (Technocrat) */
+  --color-ethics:     oklch(0.7 0.2 350);  /* Rose (Humanist) */
+  --color-risk:       oklch(0.85 0.15 90); /* Gold (Inquisitor) */
+  --color-judge:      oklch(0.75 0.15 300); /* Lavender (Judge) */
+  
+  --text-primary:     oklch(0.95 0.01 250);
+  --text-secondary:   oklch(0.7 0.01 250);
+  --text-muted:       oklch(0.5 0.01 250);
 
-  --font-ui:    'Geist', system-ui, -apple-system, sans-serif;
+  /* Typography */
+  --font-ui:    'Satoshi', 'Geist', system-ui, -apple-system, sans-serif;
   --font-mono:  'Geist Mono', 'Menlo', monospace;
+
+  /* Motion: Emil Kowalski Spring Curves */
+  --spring-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+  --spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ── Base Document ────────────────────────────────────────── */
@@ -34,11 +43,21 @@
 html, body, #root {
   width: 100%;
   height: 100%;
-  background: #0a0a0a;
+  background: var(--surface);
   color: var(--text-primary);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Utility: Micro-Borders ───────────────────────────────── */
+.micro-border {
+  border: 1px solid var(--surface-border);
+  transition: all 0.6s var(--spring-snappy);
+}
+.micro-border:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02), 0 0 15px rgba(255, 255, 255, 0.05); /* Fresnel Glow */
 }
 
 /* ── App Root ─────────────────────────────────────────────── */
@@ -47,7 +66,8 @@ html, body, #root {
   height: 100vh;
   position: relative;
   overflow: hidden;
-  background: #0a0a0a;
+  background: var(--surface);
+  contain: layout paint; /* Layout Stability */
 }
 
 /* ── Dot Grid Overlay ─────────────────────────────────────── */
@@ -59,6 +79,7 @@ html, body, #root {
   background-image: radial-gradient(circle, white 1px, transparent 1px);
   background-size: 40px 40px;
   z-index: 0;
+  contain: layout paint;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -72,16 +93,17 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
-  padding: 24px;
+  gap: 40px; /* 8pt grid */
+  padding: 24px; /* 8pt grid */
   z-index: 10;
+  will-change: opacity, transform;
 }
 
 .landing-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px; /* 8pt grid */
   user-select: none;
 }
 
@@ -89,7 +111,7 @@ html, body, #root {
   font-size: 48px;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: white;
+  color: var(--text-primary);
   text-shadow: 0 0 40px rgba(255,255,255,0.05);
 }
 
@@ -105,7 +127,6 @@ html, body, #root {
   font-size: 11px;
   color: var(--text-muted);
   letter-spacing: 0.05em;
-  opacity: 0.6;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -113,28 +134,22 @@ html, body, #root {
    ═══════════════════════════════════════════════════════════ */
 
 .prompt-card {
-  background: rgba(18, 18, 18, 0.8);
+  background: var(--surface-elevated);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 24px;
+  /* Micro-border applied via component */
 }
 
 .prompt-card.compact {
-  padding: 12px 16px;
+  padding: 16px;
   border-radius: 16px;
-  gap: 4px;
-  background: rgba(18, 18, 18, 0.9);
-}
-
-.prompt-card:focus-within {
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+  gap: 8px;
+  background: rgba(10, 10, 10, 0.8);
 }
 
 .prompt-textarea {
@@ -163,6 +178,7 @@ html, body, #root {
 }
 
 .prompt-hint {
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 0.1em;
@@ -174,14 +190,15 @@ html, body, #root {
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: white;
-  color: #0a0a0a;
+  background: var(--text-primary);
+  color: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.6s var(--spring-snappy);
   flex-shrink: 0;
+  will-change: transform;
 }
 
 .compact .prompt-send {
@@ -209,6 +226,7 @@ html, body, #root {
   padding: 32px 24px 40px;
   display: flex;
   justify-content: center;
-  background: linear-gradient(to top, #0a0a0a 60%, transparent);
+  background: linear-gradient(to top, var(--surface) 60%, transparent);
   z-index: 150;
 }
+
