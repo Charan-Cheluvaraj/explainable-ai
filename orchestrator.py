@@ -50,7 +50,7 @@ genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "REPLACE_ME"))
 groq_client  = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
 memory_svc   = MemoryService()
 
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+GEMINI_MODEL = "gemini-2.0-flash-lite"
 GROQ_MODEL   = "llama3-70b-8192"   # swap to gpt-oss-120b when available on Groq
 
 # ─────────────────────────────────────────────────────────────
@@ -61,13 +61,13 @@ class CitationEmbed(BaseModel):
     """Structured citation attached directly to a LogicNode."""
     source_id: str
     source_text: str
-    relevance_score: float = Field(ge=0.0, le=1.0)
+    relevance_score: float = 0.0
     source_url: Optional[str] = None
 
 
 class LogicNode(BaseModel):
     label: str
-    weight: float = Field(ge=0.0, le=1.0)
+    weight: float = 1.0
     category: Literal["Logic", "Ethics", "Risk"]
     source_id: Optional[str] = None
     citation: Optional[CitationEmbed] = None
@@ -76,19 +76,19 @@ class LogicNode(BaseModel):
 
 class AttributionPoint(BaseModel):
     input_token: str
-    impact_score: float = Field(ge=-1.0, le=1.0)
+    impact_score: float = 0.0
     reason: str
 
 
 class Synapse3DResponse(BaseModel):
     decision: str
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = 0.0
     logic_nodes: List[LogicNode]
     attribution_map: List[AttributionPoint]
     internal_critique: str
 
     # Judge-only fields (optional on sub-agent outputs)
-    consensus_stability: float = Field(default=0.0, ge=0.0, le=1.0)
+    consensus_stability: float = 0.0
     dissenting_opinion: Optional[str] = None
     is_crisis: bool = False
     crisis_reason: Optional[str] = None
