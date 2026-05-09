@@ -151,6 +151,10 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!lastQuery) setHasSubmitted(false);
+  }, [lastQuery]);
+
   const handleSubmit = (query: string) => {
     setHasSubmitted(true);
     startDebate(query);

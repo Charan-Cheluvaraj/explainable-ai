@@ -134,10 +134,21 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
         })) || []
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Debate failed:', error);
       phaseTimers.forEach(clearTimeout);
-      set({ isDebating: false, debatePhase: 'idle' });
+      set({ 
+        isDebating: false, 
+        debatePhase: 'reveal',
+        visualState: 'CRISIS',
+        tensionVariance: 1.0,
+        synthesisResult: `ERROR: The Synapse Parliament failed to reach a synthesis. \n\nReason: ${error.message || 'API connection refused or internal server error.'}\n\nPlease check that the orchestrator backend is running and API keys are valid.`,
+        agents: {
+          technocrat: { id: 'technocrat', status: 'idle', confidence: 0, lastThought: '' },
+          humanist: { id: 'humanist', status: 'idle', confidence: 0, lastThought: '' },
+          inquisitor: { id: 'inquisitor', status: 'idle', confidence: 0, lastThought: '' },
+        }
+      });
     }
   },
 

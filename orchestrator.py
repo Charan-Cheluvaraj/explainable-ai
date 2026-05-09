@@ -295,18 +295,18 @@ and (if required by Law 2) dissenting_opinion.
 @app.post("/debate", response_model=DebateState)
 async def run_synapse_parliament(request: QueryRequest) -> DebateState:
     query = request.query
-    print(f"\n{'═'*60}")
-    print(f"  SYNAPSE3D PARLIAMENT  |  Query: {query[:60]}…")
-    print(f"{'═'*60}")
+    print(f"\n{'='*60}")
+    print(f"  SYNAPSE3D PARLIAMENT  |  Query: {query[:60]}...")
+    print(f"{'='*60}")
 
-    # ── Phase 0: Knowledge Grounding ─────────────────────────
-    print("\n  [0] Fetching grounding knowledge…")
+    # -- Phase 0: Knowledge Grounding -------------------------
+    print("\n  [0] Fetching grounding knowledge...")
     bundle: GroundingBundle = await memory_svc.retrieve_context(query)
     grounding_block = bundle.formatted_block
     state = DebateState(query=query, grounding_bundle=bundle)
 
-    # ── Round 1: Parallel Independent Generation ─────────────
-    print("  [1] Round 1 — Parallel independent generation…")
+    # -- Round 1: Parallel Independent Generation -------------
+    print("  [1] Round 1 - Parallel independent generation...")
     r1_tasks = [
         call_gemini_agent(
             name,
@@ -319,15 +319,15 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
 
     for name, result in zip(PERSONAS.keys(), r1_results):
         state.round_1_responses[name] = result
-        status = "✓" if not getattr(result, "reasoning_failure", False) else "✗"
+        status = "[OK]" if not getattr(result, "reasoning_failure", False) else "[FAIL]"
         conf   = getattr(result, "confidence", 0.0)
         print(f"     {status} {name:<14} confidence={conf:.2f}")
 
     state.compute_tension()
-    print(f"     Tension  σ²={state.tension_variance:.4f}  σ={state.tension_stdev:.4f}")
+    print(f"     Tension  Var={state.tension_variance:.4f}  StDev={state.tension_stdev:.4f}")
 
-    # ── Round 2: Adversarial Critique ────────────────────────
-    print(f"  [2] Round 2 — Brawl…")
+    # -- Round 2: Adversarial Critique ------------------------
+    print(f"  [2] Round 2 - Brawl...")
 
     def _dump(res: AgentResult) -> str:
         return json.dumps(res.model_dump(exclude_none=True), indent=2)
@@ -351,11 +351,11 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
     r2_results = await asyncio.gather(*r2_tasks)
     for name, result in zip(PERSONAS.keys(), r2_results):
         state.round_2_responses[name] = result
-        status = "✓" if not getattr(result, "reasoning_failure", False) else "✗"
+        status = "[OK]" if not getattr(result, "reasoning_failure", False) else "[FAIL]"
         print(f"     {status} {name:<14} post-brawl stance recorded")
 
-    # ── Round 3: Constitutional Synthesis ────────────────────
-    print("  [3] Round 3 — Sovereign Judge synthesis…")
+    # -- Round 3: Constitutional Synthesis --------------------
+    print("  [3] Round 3 - Sovereign Judge synthesis...")
 
     r2_transcript = "\n\n".join(
         f"=== {name} (Round 2) ===\n{_dump(state.round_2_responses[name])}"
@@ -371,7 +371,7 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
     vs = getattr(state.final_synthesis, "visual_state", "UNKNOWN")
     cs = getattr(state.final_synthesis, "consensus_stability", 0.0)
     print(f"     Judge complete  visual_state={vs}  consensus_stability={cs:.2f}")
-    print(f"{'═'*60}\n")
+    print(f"{'='*60}\n")
 
     return state
 
