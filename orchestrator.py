@@ -640,6 +640,17 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+from fastapi.staticfiles import StaticFiles
+
+# ─────────────────────────────────────────────────────────────
+# Static Files (Frontend Build)
+# ─────────────────────────────────────────────────────────────
+
+# Mount the 'dist' directory created by 'npm run build' to serve the UI.
+# This should be at the end to avoid intercepting API routes.
+if os.path.exists("dist"):
+    app.mount("/", StaticFiles(directory="dist", html=True), name="static")
+
 # ─────────────────────────────────────────────────────────────
 # Entry Point
 # ─────────────────────────────────────────────────────────────
