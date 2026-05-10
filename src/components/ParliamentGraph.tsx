@@ -138,8 +138,10 @@ const RadialBurst = () => (
 
 export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebating, result, memoryDepth = 0 }) => {
   const [phase, setPhase] = useState(1);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [dim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const resetStore = useCognitionStore(s => s.reset);
+  const agents = useCognitionStore(s => s.agents);
 
   useEffect(() => {
     if (isDebating) {
@@ -255,8 +257,8 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               className={`p-node judge-node ${phase === 5 ? 'expanded' : ''}`}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ 
-                scale: phase === 5 ? 1.3 : 1, 
-                opacity: 1,
+                scale: phase === 5 ? 0 : 1, 
+                opacity: phase === 5 ? 0 : 1,
                 boxShadow: phase === 5 
                   ? ['0 0 0px white', '0 0 60px white', '0 0 0px white']
                   : '0 0 0px white'
@@ -276,7 +278,15 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               {phase === 5 && <div className="solid-glow-border" />}
               {phase === 5 && <RadialBurst />}
               
-              <div className="node-core">
+              <div 
+                className="node-core"
+                style={{
+                  backgroundImage: phase >= 2 ? 'url(/agents/judge.png)' : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  borderRadius: '50%',
+                }}
+              >
                 {phase === 4 && <Equalizer />}
                 {phase === 5 && (
                   <motion.div 
@@ -321,18 +331,19 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
           {phase >= 3 && AGENTS.map((agent, i) => (
             <motion.div
               key={agent.id}
-              className="p-node agent-node"
+              className={`p-node agent-node ${selectedAgent === agent.id ? 'selected' : ''}`}
+              onClick={() => setSelectedAgent(prev => prev === agent.id ? null : agent.id)}
               initial={{ 
                 left: "50%", top: "50%", 
                 translateX: "-50%", translateY: "calc(-50% - 2px)",
                 scale: 0, opacity: 0 
               }}
               animate={{ 
-                x: phase === 5 ? 0 : agent.xOff, 
-                y: phase === 5 ? 0 : agent.yOff,
-                scale: phase === 5 ? 0 : 1, 
-                opacity: phase === 5 ? 0 : 1,
-                boxShadow: (phase === 4) ? [
+                x: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 0 : agent.xOff * 1.5) : 0) : agent.xOff, 
+                y: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? -dim.h * 0.35 : agent.yOff * 1.5) : 0) : agent.yOff,
+                scale: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 1.2 : 0) : 0) : 1, 
+                opacity: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 1 : 0) : 0) : 1,
+                boxShadow: (phase === 4 || (phase === 5 && selectedAgent === agent.id)) ? [
                   `0 0 0px ${agent.color}00`,
                   `0 0 18px ${agent.color}`,
                   `0 0 0px ${agent.color}00`
@@ -340,10 +351,10 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               }}
               transition={{ 
                 type: 'spring', damping: 18,
-                x: { duration: phase === 5 ? 0.6 : 0.8 },
-                y: { duration: phase === 5 ? 0.6 : 0.8 },
-                scale: { duration: phase === 5 ? 0.4 : 0.8 },
-                opacity: { duration: phase === 5 ? 0.4 : 0.8 },
+                x: { duration: 0.8 },
+                y: { duration: 0.8 },
+                scale: { duration: 0.5 },
+                opacity: { duration: 0.5 },
                 boxShadow: {
                   duration: i === 0 ? 1.8 : i === 1 ? 2.1 : 1.5,
                   repeat: Infinity,
@@ -354,11 +365,27 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
                 left: "50%",
                 top: "50%",
                 translateX: "-50%",
-                translateY: "calc(-50% - 2px)"
+                translateY: "calc(-50% - 2px)",
+                cursor: 'pointer',
+                pointerEvents: 'auto'
               }}
             >
-              <div className="node-core">
-                <span className="node-label" style={{ color: agent.color }}>{agent.name}</span>
+              <div 
+                className="node-core"
+                style={{
+                  backgroundImage: `url(/agents/${agent.id}.png)`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  borderRadius: '50%',
+                }}
+              >
+                <motion.span 
+                  className="node-label" 
+                  style={{ color: agent.color }}
+                  animate={{ opacity: phase >= 4 ? 1 : 0 }}
+                >
+                  {agent.name}
+                </motion.span>
                 {phase === 4 && (
                   <div className="agent-status-pill">
                     <StatusCycler 
@@ -414,12 +441,16 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
         {phase === 5 && result && (
           <>
             <motion.div
-              className="verdict-card"
+              className={`verdict-card ${selectedAgent ? 'shifted' : ''}`}
               initial={{ opacity: 0, y: 40, scale: 0.96, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+              animate={{ 
+                opacity: selectedAgent ? 0 : 1, 
+                y: selectedAgent ? 100 : 0, 
+                scale: selectedAgent ? 0.9 : 1, 
+                x: '-50%' 
+              }}
               transition={{ 
-                duration: 0.7, 
-                delay: 0.3,
+                duration: 0.5, 
                 ease: [0.16, 1, 0.3, 1]
               }}
               style={{ left: '50%', top: "calc(45% + 60px)" }}
@@ -433,14 +464,16 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
                   {AGENTS.map((agent, i) => (
                     <motion.div
                       key={agent.id}
-                      className="attribution-pill"
+                      className="attribution-pill clickable"
+                      onClick={() => setSelectedAgent(agent.id)}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 1.2 + (i * 0.1) }}
                       style={{
                         color: agent.color,
                         background: `${agent.color}15`,
-                        border: `1px solid ${agent.color}30`
+                        border: `1px solid ${agent.color}30`,
+                        cursor: 'pointer'
                       }}
                     >
                       {agent.id === 'technocrat' ? '⚙' : agent.id === 'humanist' ? '♥' : '?'} {agent.name}
@@ -469,12 +502,41 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               <div className="res-footer">SESSION CONCLUDED</div>
             </motion.div>
 
+            {/* Agent Thought Overlay */}
+            <AnimatePresence>
+              {selectedAgent && (
+                <motion.div
+                  className="agent-thought-overlay"
+                  initial={{ opacity: 0, scale: 0.9, y: 20, x: '-50%' }}
+                  animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20, x: '-50%' }}
+                  style={{ left: '50%', top: '45%' }}
+                >
+                  <div className="res-header" style={{ color: AGENTS.find(a => a.id === selectedAgent)?.color }}>
+                    {selectedAgent.toUpperCase()} STANCE
+                  </div>
+                  <div className="res-body">
+                    <TypewriterText text={agents[selectedAgent as keyof typeof agents].lastThought} />
+                  </div>
+                  <motion.button 
+                    className="close-overlay"
+                    onClick={() => setSelectedAgent(null)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    ×
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <motion.button
               className="reset-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 2 }}
               onClick={resetStore}
+              style={{ opacity: selectedAgent ? 0.3 : 1 }}
             >
               [ NEW QUERY ]
             </motion.button>
@@ -697,17 +759,51 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
 
         .verdict-card {
           position: absolute;
-          width: 560px;
-          max-width: 88vw;
+          width: 600px;
+          max-width: 90vw;
+          max-height: 50vh;
           padding: 28px 32px;
           background: rgba(255, 255, 255, 0.06);
           border: 1px solid rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
+          backdrop-filter: blur(32px);
+          -webkit-backdrop-filter: blur(32px);
           border-radius: 20px;
           z-index: 200;
-          overflow: hidden;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.2) transparent;
         }
+
+        .verdict-card::-webkit-scrollbar { width: 4px; }
+        .verdict-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+        .agent-thought-overlay {
+          position: absolute;
+          width: 580px;
+          max-width: 85vw;
+          max-height: 60vh;
+          padding: 32px;
+          background: rgba(10, 10, 10, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 0 50px rgba(0,0,0,0.8);
+          backdrop-filter: blur(24px);
+          border-radius: 24px;
+          z-index: 400;
+          overflow-y: auto;
+        }
+
+        .close-overlay {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          background: none;
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          opacity: 0.6;
+        }
+        .close-overlay:hover { opacity: 1; }
 
         .verdict-top-accent {
           position: absolute;

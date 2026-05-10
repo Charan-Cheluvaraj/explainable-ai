@@ -203,7 +203,7 @@ interface AgentNodeProps {
   phase: number;
 }
 
-const AgentNode: React.FC<AgentNodeProps> = ({ label, color, icon, xOff, yOff, isThinking, phase }) => {
+const AgentNode: React.FC<AgentNodeProps> = ({ id, color, phase, isThinking, xOff, yOff }) => {
   const { x: vx, y: vy } = useVibration(isThinking);
 
   return (
@@ -246,6 +246,9 @@ const AgentNode: React.FC<AgentNodeProps> = ({ label, color, icon, xOff, yOff, i
           height: 64,
           borderRadius: '50%',
           background: TOKENS.nodeBg,
+          backgroundImage: `url(/agents/${id}.png)`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           border: `1.5px solid ${color}40`,
           backdropFilter: 'blur(16px)',
           display: 'flex',
@@ -256,9 +259,7 @@ const AgentNode: React.FC<AgentNodeProps> = ({ label, color, icon, xOff, yOff, i
             : `0 0 8px ${color}20`,
           transition: 'box-shadow 0.3s ease',
         }}
-      >
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
-      </div>
+      />
 
       {/* Scanline overlay when thinking (holographic HUD effect) */}
       {isThinking && (
@@ -278,25 +279,6 @@ const AgentNode: React.FC<AgentNodeProps> = ({ label, color, icon, xOff, yOff, i
           }}
         />
       )}
-
-      {/* Label */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: -26,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: 9,
-          fontWeight: 700,
-          letterSpacing: '0.12em',
-          color: color,
-          whiteSpace: 'nowrap',
-          fontFamily: 'var(--font-mono, monospace)',
-          textShadow: `0 0 8px ${color}60`,
-        }}
-      >
-        {label}
-      </div>
     </motion.div>
   );
 };
@@ -322,6 +304,9 @@ const LogicCore: React.FC<{
       height: isSplit ? 80 : 56,
       borderRadius: '50%',
       background: TOKENS.nodeBg,
+      backgroundImage: isSplit ? 'url(/agents/judge.png)' : 'none',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
       border: `1.5px solid ${isSplit ? TOKENS.judge : TOKENS.logicCore}60`,
       backdropFilter: 'blur(20px)',
       display: 'flex',
@@ -333,12 +318,14 @@ const LogicCore: React.FC<{
         : `0 0 20px ${TOKENS.logicGlow}, 0 0 60px ${TOKENS.logicGlow}`,
     }}
     animate={{
-      scale: phase === 1 ? [1, 1.08, 1] : phase === 5 ? 1.3 : 1,
+      scale: phase === 1 ? [1, 1.08, 1] : phase === 5 ? 0 : 1,
+      opacity: phase === 5 ? 0 : 1,
     }}
     transition={{
       scale: phase === 1
         ? { duration: 0.8, repeat: Infinity, ease: 'easeInOut' }
         : { type: 'spring', stiffness: 200, damping: 18 },
+      opacity: { duration: 0.3 }
     }}
   >
     {/* Rotating arc border when judge is active */}
@@ -354,45 +341,6 @@ const LogicCore: React.FC<{
         }}
       />
     )}
-
-    {/* Solid glow border at verdict */}
-    {phase === 5 && (
-      <div
-        style={{
-          position: 'absolute',
-          inset: -4,
-          borderRadius: '50%',
-          border: '2px solid rgba(255,255,255,0.9)',
-          boxShadow: '0 0 20px rgba(255,255,255,0.5)',
-        }}
-      />
-    )}
-
-    {/* Core icon */}
-    <motion.div
-      style={{ fontSize: phase === 5 ? 32 : 18, color: 'white' }}
-      animate={{ opacity: 1 }}
-    >
-      {phase === 5 ? '§' : phase >= 2 ? '◈' : '●'}
-    </motion.div>
-
-    {/* Core label */}
-    <div
-      style={{
-        position: 'absolute',
-        bottom: -26,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        fontSize: 9,
-        fontWeight: 700,
-        letterSpacing: '0.12em',
-        color: phase === 5 ? TOKENS.judge : TOKENS.logicCore,
-        whiteSpace: 'nowrap',
-        fontFamily: 'var(--font-mono, monospace)',
-      }}
-    >
-      {phase === 5 ? 'VERDICT' : isSplit ? 'JUDGE' : 'LOGIC CORE'}
-    </div>
   </motion.div>
 );
 
