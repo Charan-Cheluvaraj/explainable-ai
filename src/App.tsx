@@ -181,7 +181,7 @@ export default function App() {
               transition={{ duration: 0.4 }}
             >
               <div className="landing-header">
-                <h1 className="landing-title">THINKMESH</h1>
+                <h1 className="landing-title">ThinkMesh</h1>
                 <p className="landing-subtitle">Stateful Cognitive Parliament</p>
               </div>
 
