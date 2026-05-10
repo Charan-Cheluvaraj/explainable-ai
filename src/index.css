@@ -238,7 +238,7 @@ html, body, #root {
   position: absolute;
   inset: 0;
   padding-top: 80px;
-  padding-bottom: 240px; /* Space for prompt */
+  padding-bottom: 180px; /* Aligns last line just above prompt bar */
   overflow-y: auto;
   display: flex;
   justify-content: center;
@@ -336,5 +336,5 @@ html, body, #root {
 }
 
 .chat-spacer {
-  height: 120px;
+  height: 20px;
 }
