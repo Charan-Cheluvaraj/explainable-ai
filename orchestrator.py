@@ -511,22 +511,25 @@ async def detect_context_intent(query: str, grounding_block: str) -> str:
     Uses a very short, low-token Groq call for speed.
     """
     try:
-        # If there's no real historical context in the grounding block, it's a new topic.
-        if "SYNAPSE3D PARLIAMENT" not in grounding_block and "Memory" not in grounding_block:
+        # If there's NO historical context at all, it's definitely a new topic.
+        # Check for our memory markers in the grounding block.
+        has_history = any(marker in grounding_block for marker in ["Memory", "Record", "PARLIAMENT"])
+        if not has_history:
             return "NEW_TOPIC"
 
         resp = await groq_client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": "Respond with exactly one word: 'FOLLOW_UP' if the query is a follow-up/clarification of the provided history, or 'NEW_TOPIC' if it's a change of subject."},
-                {"role": "user", "content": f"HISTORY:\n{grounding_block[:2000]}\n\nQUERY: {query}"}
+                {"role": "system", "content": "You are a context switch detector. Respond with 'FOLLOW_UP' if the user query is a continuation, clarification, or direct question about the topics in the HISTORY provided. Respond with 'NEW_TOPIC' if it's a pivot to something else."},
+                {"role": "user", "content": f"HISTORY:\n{grounding_block[:3000]}\n\nQUERY: {query}"}
             ],
-            max_tokens=5,
+            max_tokens=10,
             temperature=0.0
         )
         decision = resp.choices[0].message.content.strip().upper()
         return "FOLLOW_UP" if "FOLLOW" in decision else "NEW_TOPIC"
-    except:
+    except Exception as e:
+        print(f"     [DEBUG] Context detection failed: {e}")
         return "NEW_TOPIC"
 
 
@@ -576,15 +579,34 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
             print("  [⚡] FAST TRACK: Contextual follow-up detected. Skipping sub-agent rounds.")
             state.final_synthesis = await call_groq_fast_track(query, grounding_block)
             
-            # Fill dummy stances so the UI doesn't look empty
+            # Fill dummy stances so the UI doesn't look empty or broken
             for name in PERSONAS:
-                msg = "Fast Track: Contextual follow-up handled directly by the Sovereign Judge."
-                state.round_1_responses[name] = FallbackResponse(decision=msg, confidence=1.0)
-                state.round_2_responses[name] = FallbackResponse(decision=msg, confidence=1.0)
+                msg = "Authorized: This is a contextual follow-up. Direct synthesis activated for continuity."
+                state.round_1_responses[name] = Synapse3DResponse(
+                    decision=msg, 
+                    confidence=1.0, 
+                    logic_nodes=[], 
+                    attribution_map=[],
+                    visual_state="STABLE"
+                )
+                state.round_2_responses[name] = Synapse3DResponse(
+                    decision=msg, 
+                    confidence=1.0, 
+                    logic_nodes=[], 
+                    attribution_map=[],
+                    visual_state="STABLE"
+                )
             
+            # Persist this new turn too
+            await memory_svc.post_agent_message("User", "Follow-up Query", query, 1.0)
+            await memory_svc.post_agent_message("Sovereign Judge", "Fast Track Synthesis", state.final_synthesis.decision, 1.0)
+
             print("     Judge complete via Fast Track.")
             print(f"{'='*60}\n")
             return state
+
+        # Not a follow-up? Persist the new query to start a new context anchor
+        await memory_svc.post_agent_message("User", "Initial Query", query, 1.0)
 
         # -- Round 1: Local Parallel Generation -------------
         print("  [1] Round 1 - Local parallel generation (Ollama)...")
@@ -695,6 +717,16 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         vs = getattr(state.final_synthesis, "visual_state", "UNKNOWN")
         cs = getattr(state.final_synthesis, "consensus_stability", 0.0)
         print(f"     Judge complete  visual_state={vs}  consensus_stability={cs:.2f}")
+
+        # -- Persist Final Synthesis to Backboard ----------------
+        print("  [3b] Posting Final Synthesis to Backboard memory...")
+        await memory_svc.post_agent_message(
+            "Sovereign Judge",
+            "Final Synthesis",
+            getattr(state.final_synthesis, "decision", "N/A"),
+            getattr(state.final_synthesis, "confidence", 1.0),
+        )
+
         print(f"{'='*60}\n")
 
         return state
