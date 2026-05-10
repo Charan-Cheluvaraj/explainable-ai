@@ -280,8 +280,13 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               {phase === 4 && <div className="rotating-arc-border" />}
               {phase === 5 && <div className="solid-glow-border" />}
               {phase === 5 && <RadialBurst />}
-              
-              >
+              <div className="node-core flex items-center justify-center">
+                {/* Scale Icon for Judge */}
+                <Scale 
+                  size={32} 
+                  className="pointer-events-none" 
+                  style={{ color: 'var(--color-logic)', filter: 'drop-shadow(0 0 8px var(--color-logic))' }} 
+                />
                 {phase === 4 && <Equalizer />}
                 {phase === 5 && (
                   <motion.div 
