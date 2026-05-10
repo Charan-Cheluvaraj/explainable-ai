@@ -513,20 +513,21 @@ async def detect_context_intent(query: str, grounding_block: str) -> str:
     try:
         # If there's NO historical context at all, it's definitely a new topic.
         # Check for our memory markers in the grounding block.
-        has_history = any(marker in grounding_block for marker in ["Memory", "Record", "PARLIAMENT"])
+        has_history = any(marker in grounding_block for marker in ["Memory", "Record", "PARLIAMENT", "GROUNDING_KNOWLEDGE"])
         if not has_history:
             return "NEW_TOPIC"
 
         resp = await groq_client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": "You are a context switch detector. Respond with 'FOLLOW_UP' if the user query is a continuation, clarification, or direct question about the topics in the HISTORY provided. Respond with 'NEW_TOPIC' if it's a pivot to something else."},
+                {"role": "system", "content": "You are a context switch detector. Determine if the user is asking a follow-up or clarifying question about the provided HISTORY. If the user uses pronouns (it, they, this), asks for more details, risks, or benefits of the previous topic, it is a FOLLOW_UP. Only respond with NEW_TOPIC if they pivot to a completely unrelated subject."},
                 {"role": "user", "content": f"HISTORY:\n{grounding_block[:3000]}\n\nQUERY: {query}"}
             ],
             max_tokens=10,
             temperature=0.0
         )
         decision = resp.choices[0].message.content.strip().upper()
+        print(f"     [DEBUG] Intent detection result: {decision}")
         return "FOLLOW_UP" if "FOLLOW" in decision else "NEW_TOPIC"
     except Exception as e:
         print(f"     [DEBUG] Context detection failed: {e}")
