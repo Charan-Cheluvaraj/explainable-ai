@@ -1,10 +1,8 @@
 import sys
 try:
-    print("Attempting to import app from orchestrator...")
     from orchestrator import app
-    print("Successfully imported app!")
 except Exception as e:
     import traceback
-    print(f"FATAL IMPORT ERROR: {e}")
+    print(f"FATAL IMPORT ERROR: {e}", file=sys.stderr)
     traceback.print_exc()
-    raise
+    sys.exit(1)
