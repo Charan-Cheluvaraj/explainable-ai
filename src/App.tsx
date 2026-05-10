@@ -138,6 +138,7 @@ export default function App() {
   const visualState      = useCognitionStore((s) => s.visualState);
   const violations       = useCognitionStore((s) => s.violations);
   const memoryDepth      = useCognitionStore((s) => s.memoryDepth);
+  const isPromptVisible  = useCognitionStore((s) => s.isPromptVisible);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -180,7 +181,7 @@ export default function App() {
               transition={{ duration: 0.4 }}
             >
               <div className="landing-header">
-                <h1 className="landing-title">SYNAPSE 3D</h1>
+                <h1 className="landing-title">THINKMESH</h1>
                 <p className="landing-subtitle">Stateful Cognitive Parliament</p>
               </div>
 
@@ -237,8 +238,11 @@ export default function App() {
                 className="docked-prompt"
                 layout
                 initial={{ y: 0, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                animate={{ 
+                  y: isPromptVisible ? 0 : 120, 
+                  opacity: isPromptVisible ? 1 : 0 
+                }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
               >
                 <PromptInput
                   onSubmit={handleSubmit}
