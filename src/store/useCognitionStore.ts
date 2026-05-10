@@ -19,6 +19,7 @@ export interface Agent {
   status: AgentStatus;
   confidence: number;
   lastThought: string;
+  internalCritique?: string;
 }
 
 export interface ConstitutionViolation {
@@ -39,11 +40,13 @@ interface CognitionStore {
   violations: ConstitutionViolation[];
   hasEntered: boolean;
   memoryDepth: number;  // How many Backboard facts were retrieved
+  expandedAgentId: string | null;
   
   // Actions
   enterParliament: () => void;
   startDebate: (query: string) => Promise<void>;
   reset: () => void;
+  toggleAgentExpansion: (id: string) => void;
 }
 
 const formatSynthesisAnswer = (query: string, rawAnswer: string): string => {
@@ -52,9 +55,9 @@ const formatSynthesisAnswer = (query: string, rawAnswer: string): string => {
 
 const INITIAL_STATE = {
   agents: {
-    technocrat: { id: 'technocrat', status: 'idle', confidence: 1.0, lastThought: '' },
-    humanist: { id: 'humanist', status: 'idle', confidence: 1.0, lastThought: '' },
-    inquisitor: { id: 'inquisitor', status: 'idle', confidence: 1.0, lastThought: '' },
+    technocrat: { id: 'technocrat', status: 'idle', confidence: 1.0, lastThought: '', internalCritique: '' },
+    humanist: { id: 'humanist', status: 'idle', confidence: 1.0, lastThought: '', internalCritique: '' },
+    inquisitor: { id: 'inquisitor', status: 'idle', confidence: 1.0, lastThought: '', internalCritique: '' },
   } as Record<Agent['id'], Agent>,
   tensionVariance: 0,
   visualState: 'STABLE' as VisualState,
@@ -66,6 +69,7 @@ const INITIAL_STATE = {
   violations: [],
   hasEntered: false,
   memoryDepth: 0,
+  expandedAgentId: null,
 };
 
 export const useCognitionStore = create<CognitionStore>((set, get) => ({
@@ -78,10 +82,11 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       synthesisResult: '',
       round: 1,
       debatePhase: 'grounding',
+      expandedAgentId: null, // Reset expansion on new debate
       agents: {
-        technocrat: { id: 'technocrat', status: 'thinking', confidence: 1.0, lastThought: '' },
-        humanist: { id: 'humanist', status: 'thinking', confidence: 1.0, lastThought: '' },
-        inquisitor: { id: 'inquisitor', status: 'thinking', confidence: 1.0, lastThought: '' },
+        technocrat: { id: 'technocrat', status: 'thinking', confidence: 1.0, lastThought: '', internalCritique: '' },
+        humanist: { id: 'humanist', status: 'thinking', confidence: 1.0, lastThought: '', internalCritique: '' },
+        inquisitor: { id: 'inquisitor', status: 'thinking', confidence: 1.0, lastThought: '', internalCritique: '' },
       }
     });
 
@@ -118,19 +123,22 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
             id: 'technocrat', 
             status: 'speaking', 
             confidence: response.round_1_responses['Technocrat']?.confidence || 0.8,
-            lastThought: response.round_2_responses['Technocrat']?.decision || ''
+            lastThought: response.round_2_responses['Technocrat']?.decision || '',
+            internalCritique: response.round_2_responses['Technocrat']?.internal_critique || ''
           },
           humanist: { 
             id: 'humanist', 
             status: 'speaking', 
             confidence: response.round_1_responses['Humanist']?.confidence || 0.8,
-            lastThought: response.round_2_responses['Humanist']?.decision || ''
+            lastThought: response.round_2_responses['Humanist']?.decision || '',
+            internalCritique: response.round_2_responses['Humanist']?.internal_critique || ''
           },
           inquisitor: { 
             id: 'inquisitor', 
             status: 'speaking', 
             confidence: response.round_1_responses['Inquisitor']?.confidence || 0.8,
-            lastThought: response.round_2_responses['Inquisitor']?.decision || ''
+            lastThought: response.round_2_responses['Inquisitor']?.decision || '',
+            internalCritique: response.round_2_responses['Inquisitor']?.internal_critique || ''
           },
         },
         violations: (synthesis.constitution_report as { violations: { law: string, agent_id: string, reason: string }[] })?.violations?.map(v => ({
@@ -151,9 +159,9 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
         tensionVariance: 1.0,
         synthesisResult: `ERROR: The Synapse Parliament failed to reach a synthesis. \n\nReason: ${errorMessage}\n\nPlease check that the orchestrator backend is running and API keys are valid.`,
         agents: {
-          technocrat: { id: 'technocrat', status: 'idle', confidence: 0, lastThought: '' },
-          humanist: { id: 'humanist', status: 'idle', confidence: 0, lastThought: '' },
-          inquisitor: { id: 'inquisitor', status: 'idle', confidence: 0, lastThought: '' },
+          technocrat: { id: 'technocrat', status: 'idle', confidence: 0, lastThought: '', internalCritique: '' },
+          humanist: { id: 'humanist', status: 'idle', confidence: 0, lastThought: '', internalCritique: '' },
+          inquisitor: { id: 'inquisitor', status: 'idle', confidence: 0, lastThought: '', internalCritique: '' },
         }
       });
     }
@@ -162,5 +170,11 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
   enterParliament: () => set({ hasEntered: true }),
 
   reset: () => set(INITIAL_STATE),
+
+  toggleAgentExpansion: (id: string) => {
+    set((state) => ({
+      expandedAgentId: state.expandedAgentId === id ? null : id
+    }));
+  },
 }));
 

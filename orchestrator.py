@@ -426,24 +426,31 @@ async def call_groq_judge(system_prompt: str, user_prompt: str, query: str) -> A
 # ─────────────────────────────────────────────────────────────
 
 def build_round1_prompt(query: str, grounding: str, persona: str) -> str:
-    return f"""{grounding}
+    return f"""=== CURRENT USER PROPOSAL ===
+{query}
+=============================
 
-USER PROPOSAL: {query}
+{grounding}
+(NOTE: The above grounding knowledge contains HISTORICAL context. If it is NOT relevant to the CURRENT USER PROPOSAL, IGNORE IT COMPLETELY.)
 
 ROUND 1 — FIRST STANCE:
+Your task is to respond to the CURRENT USER PROPOSAL: "{query}"
 Generate your independent position. Do NOT collaborate with other agents.
-You MUST cite at least one source_id from the GROUNDING KNOWLEDGE in your logic_nodes.
+You MUST cite at least one source_id from the GROUNDING KNOWLEDGE in your logic_nodes, ONLY IF it is relevant.
 Any logic_node with weight > 0.7 that lacks a citation.source_id will be de-weighted by the Judge.
 
 Respond in the strict Synapse3D JSON format.
-CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and conversational paragraph explaining your stance. Do NOT put JSON or metadata inside the "decision" field.
+CRITICAL: The "decision" field MUST contain a highly detailed, conversational paragraph explaining your stance on the CURRENT USER PROPOSAL. Do NOT put JSON or metadata inside the "decision" field.
 """
 
 
 def build_round2_prompt(query: str, grounding: str, own_r1: str, peers_r1: str) -> str:
-    return f"""{grounding}
+    return f"""=== CURRENT USER PROPOSAL ===
+{query}
+=============================
 
-USER PROPOSAL: {query}
+{grounding}
+(NOTE: The above grounding knowledge contains HISTORICAL context. If it is NOT relevant to the CURRENT USER PROPOSAL, IGNORE IT COMPLETELY.)
 
 YOUR ROUND 1 STANCE:
 {own_r1}
@@ -452,6 +459,7 @@ ROUND 1 STANCES FROM YOUR PEERS:
 {peers_r1}
 
 ROUND 2 — ADVERSARIAL CRITIQUE (THE BRAWL):
+Your task is to debate the CURRENT USER PROPOSAL: "{query}"
 MANDATORY RULES:
   1. You are FORBIDDEN from simply agreeing with your peers.
   2. You MUST identify at least ONE "Logical Contradiction" or "Evidence Gap" in EACH peer's
@@ -460,25 +468,28 @@ MANDATORY RULES:
   4. Maintain all source_id citations from Round 1 and add new ones if your critique introduces facts.
 
 Respond in the strict Synapse3D JSON format.
-CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and conversational paragraph explaining your revised stance. Do NOT put JSON or metadata inside the "decision" field.
+CRITICAL: The "decision" field MUST contain a highly detailed, conversational paragraph explaining your revised stance on the CURRENT USER PROPOSAL. Do NOT put JSON or metadata inside the "decision" field.
 """
 
 
 def build_judge_prompt(query: str, grounding: str, r2_transcript: str) -> str:
-    return f"""{grounding}
+    return f"""=== CURRENT USER PROPOSAL ===
+{query}
+=============================
 
-USER PROPOSAL: {query}
+{grounding}
 
 FULL ROUND 2 DEBATE TRANSCRIPT (CLOSING ARGUMENTS):
 {r2_transcript}
 
 SYNTHESIS TASK:
 You are the FINAL ARBITER. Review the Brawl above. 
-Your goal is NOT just to synthesize, but to CORRECT. 
-The sub-agents above are local models and may have hallucinated or provided incorrect math/logic.
-1. Use the GROUNDING KNOWLEDGE to identify any factual errors in the transcript.
-2. In your "decision" field, provide the definitive, absolute correct answer, rectifying any mistakes made by the agents.
-3. Your answer MUST be detailed, clear, and comprehensive.
+Your goal is to synthesize an answer to the CURRENT USER PROPOSAL: "{query}"
+The sub-agents above are local models and may have hallucinated or focused on the wrong topic.
+1. Ensure your answer directly addresses the CURRENT USER PROPOSAL.
+2. Use the GROUNDING KNOWLEDGE to identify any factual errors in the transcript.
+3. In your "decision" field, provide the definitive, absolute correct answer, rectifying any mistakes made by the agents.
+4. Your answer MUST be detailed, clear, and comprehensive.
 
 Remember: you must populate constitution_report, visual_state, consensus_stability,
 and (if required by Law 2) dissenting_opinion.

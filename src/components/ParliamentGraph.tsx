@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCognitionStore } from '../store/useCognitionStore';
+import { Zap, Heart, ShieldAlert, Scale } from 'lucide-react';
+import { AgentReportOverlay } from './ui/AgentReportOverlay';
 
 interface ParliamentGraphProps {
   query: string;
@@ -138,10 +140,11 @@ const RadialBurst = () => (
 
 export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebating, result, memoryDepth = 0 }) => {
   const [phase, setPhase] = useState(1);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [dim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const resetStore = useCognitionStore(s => s.reset);
   const agents = useCognitionStore(s => s.agents);
+  const expandedAgentId = useCognitionStore(s => s.expandedAgentId);
+  const toggleAgentExpansion = useCognitionStore(s => s.toggleAgentExpansion);
 
   useEffect(() => {
     if (isDebating) {
@@ -278,14 +281,6 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               {phase === 5 && <div className="solid-glow-border" />}
               {phase === 5 && <RadialBurst />}
               
-              <div 
-                className="node-core"
-                style={{
-                  backgroundImage: phase >= 2 ? 'url(/agents/judge.png)' : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  borderRadius: '50%',
-                }}
               >
                 {phase === 4 && <Equalizer />}
                 {phase === 5 && (
@@ -331,19 +326,19 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
           {phase >= 3 && AGENTS.map((agent, i) => (
             <motion.div
               key={agent.id}
-              className={`p-node agent-node ${selectedAgent === agent.id ? 'selected' : ''}`}
-              onClick={() => setSelectedAgent(prev => prev === agent.id ? null : agent.id)}
+              className={`p-node agent-node ${expandedAgentId === agent.id ? 'selected' : ''}`}
+              onClick={() => toggleAgentExpansion(agent.id)}
               initial={{ 
                 left: "50%", top: "50%", 
                 translateX: "-50%", translateY: "calc(-50% - 2px)",
                 scale: 0, opacity: 0 
               }}
               animate={{ 
-                x: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 0 : agent.xOff * 1.5) : 0) : agent.xOff, 
-                y: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? -dim.h * 0.35 : agent.yOff * 1.5) : 0) : agent.yOff,
-                scale: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 1.2 : 0) : 0) : 1, 
-                opacity: phase === 5 ? (selectedAgent ? (selectedAgent === agent.id ? 1 : 0) : 0) : 1,
-                boxShadow: (phase === 4 || (phase === 5 && selectedAgent === agent.id)) ? [
+                x: phase === 5 ? (expandedAgentId ? (expandedAgentId === agent.id ? 0 : agent.xOff * 1.5) : 0) : agent.xOff, 
+                y: phase === 5 ? (expandedAgentId ? (expandedAgentId === agent.id ? -dim.h * 0.35 : agent.yOff * 1.5) : 0) : agent.yOff,
+                scale: phase === 5 ? (expandedAgentId ? (expandedAgentId === agent.id ? 1.1 : 0) : 0) : 1, 
+                opacity: phase === 5 ? (expandedAgentId ? (expandedAgentId === agent.id ? 1 : 0) : 0) : 1,
+                boxShadow: (phase === 4 || (phase === 5 && expandedAgentId === agent.id)) ? [
                   `0 0 0px ${agent.color}00`,
                   `0 0 18px ${agent.color}`,
                   `0 0 0px ${agent.color}00`
@@ -371,14 +366,15 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               }}
             >
               <div 
-                className="node-core"
+                className="node-core flex items-center justify-center"
                 style={{
-                  backgroundImage: `url(/agents/${agent.id}.png)`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
                   borderRadius: '50%',
+                  background: `radial-gradient(circle at center, ${agent.color}20, transparent)`,
                 }}
               >
+                {agent.id === 'technocrat' && <Zap size={28} className="pointer-events-none" style={{ color: agent.color, filter: `drop-shadow(0 0 8px ${agent.color})` }} />}
+                {agent.id === 'humanist' && <Heart size={28} className="pointer-events-none" style={{ color: agent.color, filter: `drop-shadow(0 0 8px ${agent.color})` }} />}
+                {agent.id === 'inquisitor' && <ShieldAlert size={28} className="pointer-events-none" style={{ color: agent.color, filter: `drop-shadow(0 0 8px ${agent.color})` }} />}
                 <motion.span 
                   className="node-label" 
                   style={{ color: agent.color }}
@@ -441,12 +437,12 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
         {phase === 5 && result && (
           <>
             <motion.div
-              className={`verdict-card ${selectedAgent ? 'shifted' : ''}`}
+              className={`verdict-card ${expandedAgentId ? 'shifted' : ''}`}
               initial={{ opacity: 0, y: 40, scale: 0.96, x: '-50%' }}
               animate={{ 
-                opacity: selectedAgent ? 0 : 1, 
-                y: selectedAgent ? 100 : 0, 
-                scale: selectedAgent ? 0.9 : 1, 
+                opacity: expandedAgentId ? 0 : 1, 
+                y: expandedAgentId ? 100 : 0, 
+                scale: expandedAgentId ? 0.9 : 1, 
                 x: '-50%' 
               }}
               transition={{ 
@@ -465,7 +461,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
                     <motion.div
                       key={agent.id}
                       className="attribution-pill clickable"
-                      onClick={() => setSelectedAgent(agent.id)}
+                      onClick={() => toggleAgentExpansion(agent.id)}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 1.2 + (i * 0.1) }}
@@ -502,33 +498,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               <div className="res-footer">SESSION CONCLUDED</div>
             </motion.div>
 
-            {/* Agent Thought Overlay */}
-            <AnimatePresence>
-              {selectedAgent && (
-                <motion.div
-                  className="agent-thought-overlay"
-                  initial={{ opacity: 0, scale: 0.9, y: 20, x: '-50%' }}
-                  animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20, x: '-50%' }}
-                  style={{ left: '50%', top: '45%' }}
-                >
-                  <div className="res-header" style={{ color: AGENTS.find(a => a.id === selectedAgent)?.color }}>
-                    {selectedAgent.toUpperCase()} STANCE
-                  </div>
-                  <div className="res-body">
-                    <TypewriterText text={agents[selectedAgent as keyof typeof agents].lastThought} />
-                  </div>
-                  <motion.button 
-                    className="close-overlay"
-                    onClick={() => setSelectedAgent(null)}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    ×
-                  </motion.button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <AgentReportOverlay />
 
             <motion.button
               className="reset-btn"
@@ -536,7 +506,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               animate={{ opacity: 1 }}
               transition={{ delay: 2 }}
               onClick={resetStore}
-              style={{ opacity: selectedAgent ? 0.3 : 1 }}
+              style={{ opacity: expandedAgentId ? 0.3 : 1 }}
             >
               [ NEW QUERY ]
             </motion.button>
