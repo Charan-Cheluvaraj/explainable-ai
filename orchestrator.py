@@ -1,11 +1,14 @@
 """
-orchestrator.py — Synapse3D Parliament Execution Engine.
+orchestrator.py — Synapse3D Parliament Execution Engine (Stateful Edition).
 
 Manages the full 3+1 debate lifecycle:
-  Phase 0  : Async knowledge grounding (MemoryService)
-  Round 1  : Parallel independent generation  (3× Gemini Flash-Lite)
-  Round 2  : Adversarial critique / Brawl     (3× Gemini Flash-Lite)
-  Round 3  : Constitutional synthesis          (Groq / GPT-OSS-120b)
+  Phase 0  : Backboard.io knowledge grounding (persistent memory)
+  Round 1  : Parallel independent generation  (3× Llama 3.2 via Ollama)
+  Round 2  : Adversarial critique / Brawl     (3× Llama 3.2 via Ollama)
+  Round 3  : Constitutional synthesis          (Groq / Llama 3.3 70B)
+
+Stateful Persistence: Agent stances are written to Backboard.io after each round,
+so every follow-up query has access to the full parliament history.
 """
 
 from __future__ import annotations
@@ -301,6 +304,9 @@ class DebateState(BaseModel):
     tension_variance: float = 0.0   # σ² — drives visual_state
     tension_stdev:    float = 0.0   # √σ² — human-readable
 
+    # Backboard memory depth (how many facts were retrieved from persistent memory)
+    memory_depth: int = 0
+
     def compute_tension(self) -> None:
         """
         Population variance: σ² = (1/N) Σ(cᵢ − c̄)²
@@ -494,10 +500,10 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         print(f"{'='*60}")
 
         # -- Phase 0: Knowledge Grounding -------------------------
-        print("\\n  [0] Fetching grounding knowledge...")
+        print("  [0] Fetching grounding knowledge from Backboard...")
         bundle: GroundingBundle = await memory_svc.retrieve_context(query)
         grounding_block = bundle.formatted_block
-        state = DebateState(query=query, grounding_bundle=bundle)
+        state = DebateState(query=query, grounding_bundle=bundle, memory_depth=bundle.memory_depth)
 
         # -- Round 1: Local Parallel Generation -------------
         print("  [1] Round 1 - Local parallel generation (Ollama)...")
@@ -516,6 +522,20 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
             status = "[OK]" if not getattr(result, "reasoning_failure", False) else "[FAIL]"
             conf   = getattr(result, "confidence", 0.0)
             print(f"     {status} {name:<14} confidence={conf:.2f}")
+
+        # -- Persist Round 1 stances to Backboard ----------------
+        print("  [1b] Posting Round 1 stances to Backboard memory...")
+        persist_tasks = [
+            memory_svc.post_agent_message(
+                name,
+                "Round 1",
+                getattr(state.round_1_responses[name], "decision", "N/A"),
+                getattr(state.round_1_responses[name], "confidence", 0.0),
+            )
+            for name in PERSONAS
+            if not getattr(state.round_1_responses[name], "reasoning_failure", False)
+        ]
+        await asyncio.gather(*persist_tasks)
 
         state.compute_tension()
         print(f"     Tension  Var={state.tension_variance:.4f}  StDev={state.tension_stdev:.4f}")
@@ -549,8 +569,22 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
             print(f"     {status} {name:<14} post-brawl stance recorded")
 
         if all(getattr(result, "reasoning_failure", False) for result in r2_results):
-            print("     [FALLBACK] Round 2 exhausted quota or returned invalid schema. Reusing Round 1 responses for synthesis.")
+            print("     [FALLBACK] Round 2 exhausted. Reusing Round 1 for synthesis.")
             state.round_2_responses = dict(state.round_1_responses)
+
+        # -- Persist Round 2 stances to Backboard ----------------
+        print("  [2b] Posting Round 2 stances to Backboard memory...")
+        persist_r2_tasks = [
+            memory_svc.post_agent_message(
+                name,
+                "Round 2 Brawl",
+                getattr(state.round_2_responses[name], "decision", "N/A"),
+                getattr(state.round_2_responses[name], "confidence", 0.0),
+            )
+            for name in PERSONAS
+            if not getattr(state.round_2_responses[name], "reasoning_failure", False)
+        ]
+        await asyncio.gather(*persist_r2_tasks)
 
         # -- Round 3: Constitutional Synthesis --------------------
         print("  [3] Round 3 - Sovereign Judge synthesis...")

@@ -38,6 +38,7 @@ interface CognitionStore {
   synthesisResult: string;
   violations: ConstitutionViolation[];
   hasEntered: boolean;
+  memoryDepth: number;  // How many Backboard facts were retrieved
   
   // Actions
   enterParliament: () => void;
@@ -64,6 +65,7 @@ const INITIAL_STATE = {
   synthesisResult: '',
   violations: [],
   hasEntered: false,
+  memoryDepth: 0,
 };
 
 export const useCognitionStore = create<CognitionStore>((set, get) => ({
@@ -110,6 +112,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
         tensionVariance: response.tension_variance,
         visualState: synthesis.visual_state,
         synthesisResult: formatSynthesisAnswer(query, synthesis.decision),
+        memoryDepth: (response as unknown as { memory_depth?: number }).memory_depth ?? 0,
         agents: {
           technocrat: { 
             id: 'technocrat', 

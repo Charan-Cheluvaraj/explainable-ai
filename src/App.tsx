@@ -3,14 +3,9 @@ import { useCognitionStore } from './store/useCognitionStore';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 import { ParliamentGraph } from './components/ParliamentGraph';
+import { NeuralSplit } from './components/NeuralSplit';
 import { OpeningGate } from './components/ui/OpeningGate';
 import { MissionControlSidebar } from './components/MissionControlSidebar';
-import { StringTune } from '@fiddle-digital/string-tune';
-
-
-// ─────────────────────────────────────────────────────────────
-// Prompt Input Component
-// ─────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
@@ -20,10 +15,12 @@ function PromptInput({
   onSubmit,
   disabled,
   compact,
+  containerRef,
 }: {
   onSubmit: (query: string) => void;
   disabled: boolean;
   compact: boolean;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [query, setQuery] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -50,7 +47,6 @@ function PromptInput({
     }
   };
 
-  // Subtle Spotlight Effect using standard mouse tracking (rAF optimized)
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!textareaRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -62,14 +58,15 @@ function PromptInput({
 
   return (
     <motion.div
+      ref={containerRef as React.RefObject<HTMLDivElement>}
       layoutId="prompt-card"
       className={`prompt-card micro-border ${compact ? 'compact' : ''}`}
       onMouseMove={handleMouseMove}
+      layout
       style={{
         maxWidth: compact ? '720px' : '640px',
         width: '100%',
         opacity: compact && disabled ? 0.6 : 1,
-        // The spotlight gradient will be combined with background in CSS
         background: `radial-gradient(800px circle at var(--mouse-x, 0) var(--mouse-y, 0), rgba(255,255,255,0.06), transparent 40%), var(--surface-elevated)`
       }}
     >
@@ -111,29 +108,39 @@ function PromptInput({
 // Main App
 // ─────────────────────────────────────────────────────────────
 
+// Map DebatePhase string to numeric phase for NeuralSplit
+function resolvePhase(debatePhase: string, isDebating: boolean, synthesisResult: string): number {
+  if (synthesisResult && !isDebating) return 5;
+  if (!isDebating) return 0;
+  switch (debatePhase) {
+    case 'grounding': return 1;
+    case 'round1':    return 2;
+    case 'brawl':     return 3;
+    case 'synthesis': return 4;
+    case 'reveal':    return 5;
+    default:          return 1;
+  }
+}
+
 export default function App() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const hasEntered = useCognitionStore((s) => s.hasEntered);
-  const isDebating = useCognitionStore((s) => s.isDebating);
-  const lastQuery = useCognitionStore((s) => s.lastQuery);
-  const synthesisResult = useCognitionStore((s) => s.synthesisResult);
-  const startDebate = useCognitionStore((s) => s.startDebate);
-  
-  const agents = useCognitionStore((s) => s.agents);
-  const tensionVariance = useCognitionStore((s) => s.tensionVariance);
-  const visualState = useCognitionStore((s) => s.visualState);
-  const violations = useCognitionStore((s) => s.violations);
-  
+  const promptRef = useRef<HTMLDivElement | null>(null);
+
+  const hasEntered       = useCognitionStore((s) => s.hasEntered);
+  const isDebating       = useCognitionStore((s) => s.isDebating);
+  const debatePhase      = useCognitionStore((s) => s.debatePhase);
+  const lastQuery        = useCognitionStore((s) => s.lastQuery);
+  const synthesisResult  = useCognitionStore((s) => s.synthesisResult);
+  const startDebate      = useCognitionStore((s) => s.startDebate);
+  const agents           = useCognitionStore((s) => s.agents);
+  const tensionVariance  = useCognitionStore((s) => s.tensionVariance);
+  const visualState      = useCognitionStore((s) => s.visualState);
+  const violations       = useCognitionStore((s) => s.violations);
+  const memoryDepth      = useCognitionStore((s) => s.memoryDepth);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    // Initialize StringTune for high-performance scroll/cursor effects
-    try {
-      StringTune.getInstance();
-    } catch (e) {
-      console.log("StringTune initialization skipped or failed.", e);
-    }
-  }, []);
+  const neuralPhase = resolvePhase(debatePhase, isDebating, synthesisResult);
 
   useEffect(() => {
     if (!lastQuery) {
@@ -157,8 +164,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, scale: 1.15, filter: 'blur(30px)' }}
-              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }} // Spring Curve
-
+              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
               className="w-full h-screen"
             >
               <OpeningGate />
@@ -173,14 +179,20 @@ export default function App() {
               transition={{ duration: 0.4 }}
             >
               <div className="landing-header">
-                <h1 className="landing-title">SYNAPSE 2D</h1>
-                <p className="landing-subtitle">Cognitive Parliament</p>
+                <h1 className="landing-title">SYNAPSE 3D</h1>
+                <p className="landing-subtitle">Stateful Cognitive Parliament</p>
               </div>
-              
-              <PromptInput onSubmit={handleSubmit} disabled={false} compact={false} />
-              
+
+              {/* Prompt at center — will slide to bottom on submit (layout animation) */}
+              <PromptInput
+                onSubmit={handleSubmit}
+                disabled={false}
+                compact={false}
+                containerRef={promptRef}
+              />
+
               <p className="landing-hint">
-                A minimal, multi-agent reasoning collective.
+                Powered by Backboard persistent memory · Local Ollama agents · Groq synthesis
               </p>
             </motion.div>
           ) : (
@@ -191,21 +203,46 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Node Graph Visualization */}
-              <ParliamentGraph 
-                query={lastQuery} 
-                isDebating={isDebating} 
-                result={synthesisResult} 
+              {/* ParliamentGraph still handles verdict card, tension meter, query pill */}
+              <ParliamentGraph
+                query={lastQuery}
+                isDebating={isDebating}
+                result={synthesisResult}
+                memoryDepth={memoryDepth}
               />
 
-              {/* Docked prompt input at bottom */}
-              <div className="docked-prompt">
+              {/* NeuralSplit overlay — beam + morphing nodes + vibration */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  zIndex: 15,
+                }}
+              >
+                <NeuralSplit
+                  promptRef={promptRef}
+                  isDebating={isDebating}
+                  debatePhase={debatePhase}
+                  phase={neuralPhase}
+                />
+              </div>
+
+              {/* Docked prompt — slides to bottom via Framer layout animation */}
+              <motion.div
+                className="docked-prompt"
+                layout
+                initial={{ y: 0, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+              >
                 <PromptInput
                   onSubmit={handleSubmit}
                   disabled={isDebating}
                   compact={true}
+                  containerRef={promptRef}
                 />
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

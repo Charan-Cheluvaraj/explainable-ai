@@ -1,19 +1,28 @@
 """
-memory_service.py — The Synapse3D Evidence & Grounding Layer.
+memory_service.py — The Synapse3D Evidence & Grounding Layer (Backboard.io Edition).
 
-Provides an asynchronous retriever that fetches evidence citations from a
-Vector DB or the Sponsor Memory API. Agents use these to anchor their
-logic_nodes in reality, preventing unchecked hallucination.
+Provides an async retriever that reads/writes to Backboard.io persistent threads,
+giving every Synapse3D parliament session a stateful memory.
 
-SWAP POINT: Replace the `_mock_retrieve` method body with a real
-Pinecone/ChromaDB/Sponsor API call without touching any other module.
+Architecture:
+  • retrieve_context(query)    — reads Backboard thread history → Citation objects
+  • post_agent_message(...)    — writes agent stances to the thread after each round
+  • _ensure_thread()           — auto-creates a Backboard thread on first run, persists ID
+
+Fallback: If Backboard is unreachable, silently falls back to the built-in mock corpus
+so the parliament always runs.
 """
 
 from __future__ import annotations
 import asyncio
+import json
+import os
+import re
+from pathlib import Path
 from typing import List, Optional
-from pydantic import BaseModel, Field
 
+import httpx
+from pydantic import BaseModel, Field
 
 # ─────────────────────────────────────────────────────────────
 # Data Models — Citation Schema
@@ -37,6 +46,15 @@ class GroundingBundle(BaseModel):
     """
     formatted_block: str
     citations: List[Citation]
+    memory_depth: int = 0  # Count of Backboard-retrieved facts (shown in UI)
+
+
+# ─────────────────────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────────────────────
+
+BACKBOARD_BASE_URL = "https://app.backboard.io/api"
+THREAD_ID_FILE     = Path(__file__).parent / ".backboard_thread_id"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -45,11 +63,198 @@ class GroundingBundle(BaseModel):
 
 class MemoryService:
     """
-    Async evidence retriever. Acts as a modular bridge to any Vector DB
-    or Sponsor Memory API. Swap `_mock_retrieve` for a real client call.
+    Async evidence retriever backed by Backboard.io persistent threads.
+    Falls back to an in-memory mock corpus if the API is unavailable.
     """
 
-    # ── Simulated Knowledge Corpus ────────────────────────────
+    def __init__(self) -> None:
+        self._api_key     = os.environ.get("BACKBOARD_API_KEY", "")
+        self._thread_id   : Optional[str] = None
+        self._client      : Optional[httpx.AsyncClient] = None
+
+        # Load previously stored thread_id (survives server restarts)
+        if THREAD_ID_FILE.exists():
+            stored = THREAD_ID_FILE.read_text().strip()
+            if stored:
+                self._thread_id = stored
+                print(f"  [BACKBOARD] Resuming thread: {self._thread_id}")
+
+    # ── Public Interface ──────────────────────────────────────
+
+    async def retrieve_context(self, query: str) -> GroundingBundle:
+        """
+        Fetches grounding context for the given query.
+        Priority: Backboard thread history → mock corpus (fallback).
+        """
+        if self._api_key:
+            try:
+                citations = await self._backboard_retrieve(query)
+                if citations:
+                    print(f"  [BACKBOARD] Retrieved {len(citations)} memory facts.")
+                    formatted = self._format_block(citations)
+                    return GroundingBundle(
+                        formatted_block=formatted,
+                        citations=citations,
+                        memory_depth=len(citations),
+                    )
+            except Exception as exc:
+                print(f"  [BACKBOARD] Retrieval failed, falling back to corpus. ({exc})")
+
+        # Fallback: local mock corpus
+        citations = await self._mock_retrieve(query)
+        formatted = self._format_block(citations)
+        return GroundingBundle(formatted_block=formatted, citations=citations, memory_depth=0)
+
+    async def post_agent_message(
+        self,
+        persona_name: str,
+        round_name: str,
+        decision: str,
+        confidence: float,
+    ) -> None:
+        """
+        Posts an agent's stance to the Backboard thread as a user message.
+        This is the "Permanent Record" — future queries will see this history.
+        """
+        if not self._api_key:
+            return
+        try:
+            await self._ensure_thread()
+            content = (
+                f"[SYNAPSE3D PARLIAMENT — {round_name}]\n"
+                f"Agent: {persona_name}\n"
+                f"Confidence: {confidence:.2f}\n"
+                f"Stance: {decision}"
+            )
+            await self._post_message(content)
+            print(f"  [BACKBOARD] Posted {persona_name} ({round_name}) stance to thread.")
+        except Exception as exc:
+            print(f"  [BACKBOARD] Failed to post {persona_name} stance. ({exc})")
+
+    async def close(self) -> None:
+        """Cleanly close the httpx client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+
+    # ── Backboard API Integration ─────────────────────────────
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                base_url=BACKBOARD_BASE_URL,
+                headers={
+                    "X-API-Key": self._api_key,
+                    "Content-Type": "application/json",
+                },
+                timeout=15.0,
+            )
+        return self._client
+
+    async def _ensure_thread(self) -> str:
+        """
+        Returns the active thread_id. Auto-creates one on first call and
+        persists it to disk so the same thread survives server restarts.
+        """
+        if self._thread_id:
+            return self._thread_id
+
+        print("  [BACKBOARD] No thread ID found. Creating a new parliament thread...")
+        client = self._get_client()
+        resp = await client.post(
+            "/threads/messages",
+            json={
+                "content": (
+                    "Synapse3D Parliament has been initialized. "
+                    "This thread will record all agent stances and judgments for stateful reasoning."
+                ),
+                "stream": False,
+                "memory": "Auto",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        self._thread_id = data.get("thread_id")
+        if not self._thread_id:
+            raise ValueError(f"Backboard did not return a thread_id. Response: {data}")
+
+        # Persist for future restarts
+        THREAD_ID_FILE.write_text(self._thread_id)
+        print(f"  [BACKBOARD] New thread created and saved: {self._thread_id}")
+        return self._thread_id
+
+    async def _post_message(self, content: str) -> dict:
+        """Posts a user message to the active Backboard thread."""
+        thread_id = await self._ensure_thread()
+        client = self._get_client()
+        resp = await client.post(
+            "/threads/messages",
+            json={
+                "content": content,
+                "thread_id": thread_id,
+                "stream": False,
+                "memory": "Auto",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def _backboard_retrieve(self, query: str) -> List[Citation]:
+        """
+        Reads the Backboard thread history and maps past agent messages
+        to Citation objects for use as grounding knowledge.
+        """
+        thread_id = await self._ensure_thread()
+        client = self._get_client()
+
+        resp = await client.get(f"/threads/{thread_id}")
+        resp.raise_for_status()
+        data = resp.json()
+
+        messages: list[dict] = data.get("messages", [])
+        if not messages:
+            return []
+
+        citations: List[Citation] = []
+        query_lower = query.lower()
+
+        for msg in messages[-20:]:  # Use most recent 20 messages max
+            content: str = msg.get("content", "")
+            role: str    = msg.get("role", "")
+            msg_id: str  = msg.get("id", f"bb-{len(citations)}")
+
+            if not content or len(content) < 20:
+                continue
+
+            # Score relevance by keyword overlap with query
+            words       = set(re.findall(r"\w+", query_lower))
+            msg_words   = set(re.findall(r"\w+", content.lower()))
+            overlap     = len(words & msg_words)
+            relevance   = min(0.5 + (overlap * 0.08), 1.0)
+
+            # Label the source
+            if "[SYNAPSE3D PARLIAMENT" in content:
+                source_id = f"BB-PARLIAMENT-{msg_id}"
+                label     = "Synapse3D Parliament Memory"
+            elif role == "assistant":
+                source_id = f"BB-ASSIST-{msg_id}"
+                label     = "Backboard Assistant Memory"
+            else:
+                source_id = f"BB-USER-{msg_id}"
+                label     = "Parliament Session Record"
+
+            citations.append(Citation(
+                source_id=source_id,
+                source_text=f"[{label}] {content[:400]}",
+                relevance_score=round(relevance, 2),
+                source_url=f"https://app.backboard.io/threads/{thread_id}",
+            ))
+
+        # Sort by relevance, cap at 5
+        citations.sort(key=lambda c: c.relevance_score, reverse=True)
+        return citations[:5]
+
+    # ── Fallback: Mock Corpus ─────────────────────────────────
+
     _CORPUS: dict[str, list[Citation]] = {
         "performance": [
             Citation(
@@ -103,46 +308,21 @@ class MemoryService:
         ]
     }
 
-    # ── Public Interface ──────────────────────────────────────
-
-    async def retrieve_context(self, query: str) -> GroundingBundle:
-        """
-        Asynchronously retrieves a GroundingBundle for the given query.
-
-        SWAP POINT: Replace `_mock_retrieve` with:
-          - `self._pinecone_retrieve(query)` for Pinecone
-          - `self._chroma_retrieve(query)` for ChromaDB
-          - `self._sponsor_api_retrieve(query)` for the Sponsor Memory API
-        """
-        citations = await self._mock_retrieve(query)
-        formatted = self._format_block(citations)
-        return GroundingBundle(formatted_block=formatted, citations=citations)
-
-    # ── Private Retrieval Backend (Stub) ─────────────────────
-
     async def _mock_retrieve(self, query: str) -> List[Citation]:
-        """
-        Keyword-based mock retrieval. Simulates 200ms network latency.
-        Returns up to 4 citations ranked by relevance_score.
-        """
-        await asyncio.sleep(0.2)   # Simulate I/O
-
+        """Keyword-based mock retrieval. Simulates 200ms network latency."""
+        await asyncio.sleep(0.2)
         q = query.lower()
         gathered: List[Citation] = []
 
         if any(kw in q for kw in ("fast", "performance", "parallel", "latency", "throughput")):
             gathered.extend(self._CORPUS["performance"])
-
         if any(kw in q for kw in ("safe", "bias", "privacy", "ethics", "human", "fair")):
             gathered.extend(self._CORPUS["ethics"])
-
         if any(kw in q for kw in ("break", "hack", "risk", "attack", "fail", "vuln")):
             gathered.extend(self._CORPUS["risk"])
 
-        # Always include the canonical MAD paper as a baseline
         gathered.extend(self._CORPUS["general"])
 
-        # De-duplicate by source_id, sort by relevance descending, cap at 5
         seen: set[str] = set()
         unique: List[Citation] = []
         for c in sorted(gathered, key=lambda x: x.relevance_score, reverse=True):
@@ -151,33 +331,12 @@ class MemoryService:
                 unique.append(c)
             if len(unique) >= 5:
                 break
-
         return unique
-
-    # ── SWAP POINT: Pinecone ──────────────────────────────────
-    # async def _pinecone_retrieve(self, query: str) -> List[Citation]:
-    #     import pinecone
-    #     index = pinecone.Index("synapse3d-memory")
-    #     results = index.query(vector=embed(query), top_k=5, include_metadata=True)
-    #     return [Citation(source_id=r.id, source_text=r.metadata["text"],
-    #                      relevance_score=r.score) for r in results.matches]
-
-    # ── SWAP POINT: Sponsor Memory API ───────────────────────
-    # async def _sponsor_api_retrieve(self, query: str) -> List[Citation]:
-    #     import httpx
-    #     async with httpx.AsyncClient() as client:
-    #         resp = await client.post(SPONSOR_API_URL, json={"query": query})
-    #     return [Citation(**item) for item in resp.json()["results"]]
 
     # ── Prompt Formatter ──────────────────────────────────────
 
     @staticmethod
     def _format_block(citations: List[Citation]) -> str:
-        """
-        Formats citations into the strict [GROUNDING_KNOWLEDGE] block
-        injected into every agent's Round 1 prompt. The agent is instructed
-        to reference these source_ids inside its logic_nodes.
-        """
         if not citations:
             return "[GROUNDING_KNOWLEDGE]: No relevant evidence retrieved.\n"
 

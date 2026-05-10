@@ -6,6 +6,7 @@ interface ParliamentGraphProps {
   query: string;
   isDebating: boolean;
   result?: string;
+  memoryDepth?: number;  // Backboard facts retrieved
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ const RadialBurst = () => (
 // Main Component
 // ─────────────────────────────────────────────────────────────
 
-export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebating, result }) => {
+export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebating, result, memoryDepth = 0 }) => {
   const [phase, setPhase] = useState(1);
   const [dim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const resetStore = useCognitionStore(s => s.reset);
@@ -427,7 +428,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
               <div className="res-header">PARLIAMENTARY SYNTHESIS</div>
               <div className="res-body">
                 <TypewriterText text={result} />
-                
+
                 <div className="attribution-chips">
                   {AGENTS.map((agent, i) => (
                     <motion.div
@@ -436,7 +437,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 1.2 + (i * 0.1) }}
-                      style={{ 
+                      style={{
                         color: agent.color,
                         background: `${agent.color}15`,
                         border: `1px solid ${agent.color}30`
@@ -445,6 +446,24 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
                       {agent.id === 'technocrat' ? '⚙' : agent.id === 'humanist' ? '♥' : '?'} {agent.name}
                     </motion.div>
                   ))}
+
+                  {/* Memory depth badge */}
+                  {memoryDepth > 0 && (
+                    <motion.div
+                      className="attribution-pill"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.6 }}
+                      style={{
+                        color: 'oklch(0.75 0.15 245)',
+                        background: 'oklch(0.65 0.18 245 / 0.1)',
+                        border: '1px solid oklch(0.65 0.18 245 / 0.3)',
+                        marginLeft: 'auto',
+                      }}
+                    >
+                      ◈ MEMORY DEPTH: {memoryDepth} fact{memoryDepth !== 1 ? 's' : ''}
+                    </motion.div>
+                  )}
                 </div>
               </div>
               <div className="res-footer">SESSION CONCLUDED</div>
