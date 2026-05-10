@@ -45,6 +45,34 @@ interface CognitionStore {
   reset: () => void;
 }
 
+const formatSynthesisAnswer = (query: string, rawAnswer: string): string => {
+  const trimmed = rawAnswer.trim();
+  if (!trimmed) return trimmed;
+
+  const withoutSupporting = trimmed.split(/supporting perspectives:/i)[0]?.trim() || trimmed;
+  const normalized = withoutSupporting.replace(/\s+/g, ' ').trim();
+
+  const currentStateMatch = normalized.match(/current state variable:\s*([^.\n]+)\.?/i);
+  if (currentStateMatch?.[1]) {
+    return currentStateMatch[1].trim();
+  }
+
+  const answerMatch = normalized.match(/^(?:answer|final answer|verdict|resolution)\s*:\s*(.+)$/i);
+  if (answerMatch?.[1]) {
+    return answerMatch[1].trim();
+  }
+
+  const looksFactQuery = /^(who|what|when|where|which)\b/i.test(query.trim());
+  if (looksFactQuery) {
+    const firstSentence = normalized.match(/(.+?[.!?])(?:\s|$)/);
+    if (firstSentence?.[1]) {
+      return firstSentence[1].trim();
+    }
+  }
+
+  return normalized;
+};
+
 const INITIAL_STATE = {
   agents: {
     technocrat: { id: 'technocrat', status: 'idle', confidence: 1.0, lastThought: '' },
@@ -105,7 +133,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
         debatePhase: 'reveal',
         tensionVariance: response.tension_variance,
         visualState: synthesis.visual_state,
-        synthesisResult: synthesis.decision,
+        synthesisResult: formatSynthesisAnswer(query, synthesis.decision),
         agents: {
           technocrat: { 
             id: 'technocrat', 
