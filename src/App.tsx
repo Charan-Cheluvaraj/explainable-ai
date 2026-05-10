@@ -6,6 +6,8 @@ import { ParliamentGraph } from './components/ParliamentGraph';
 import { NeuralSplit } from './components/NeuralSplit';
 import { OpeningGate } from './components/ui/OpeningGate';
 import { MissionControlSidebar } from './components/MissionControlSidebar';
+import { ChatView } from './components/ChatView';
+import { StringTune } from '@fiddle-digital/string-tune';
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
@@ -203,13 +205,16 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              {/* ParliamentGraph still handles verdict card, tension meter, query pill */}
-              <ParliamentGraph
-                query={lastQuery}
-                isDebating={isDebating}
-                result={synthesisResult}
-                memoryDepth={memoryDepth}
-              />
+              {(!isDebating && synthesisResult) ? (
+                <ChatView />
+              ) : (
+                <ParliamentGraph
+                  query={lastQuery}
+                  isDebating={isDebating}
+                  result={synthesisResult}
+                  memoryDepth={memoryDepth}
+                />
+              )}
 
               {/* NeuralSplit overlay — beam + morphing nodes + vibration */}
               <div

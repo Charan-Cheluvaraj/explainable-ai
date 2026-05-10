@@ -230,3 +230,111 @@ html, body, #root {
   z-index: 150;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   CHAT VIEW (Phase 5)
+   ═══════════════════════════════════════════════════════════ */
+
+.chat-container {
+  position: absolute;
+  inset: 0;
+  padding-top: 80px;
+  padding-bottom: 120px; /* Space for prompt */
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+  scroll-behavior: smooth;
+}
+
+.chat-container::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+.chat-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.chat-messages {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 24px;
+}
+
+.message-row {
+  display: flex;
+  width: 100%;
+  padding: 24px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message-content {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.judge-avatar {
+  background: var(--text-primary);
+  color: var(--surface);
+  border: none;
+}
+
+.message-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.message-header {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.message-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.message-text p {
+  margin-bottom: 1em;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
+.judge-text {
+  font-size: 16px;
+  color: white;
+}
+
+.chat-spacer {
+  height: 40px;
+}
