@@ -49,7 +49,7 @@ interface CognitionStore {
   toggleAgentExpansion: (id: string) => void;
 }
 
-const formatSynthesisAnswer = (query: string, rawAnswer: string): string => {
+const formatSynthesisAnswer = (_query: string, rawAnswer: string): string => {
   return rawAnswer.trim();
 };
 

@@ -7,7 +7,6 @@ export const ChatView: React.FC = () => {
   const query = useCognitionStore((s) => s.lastQuery);
   const agents = useCognitionStore((s) => s.agents);
   const result = useCognitionStore((s) => s.synthesisResult);
-  const resetStore = useCognitionStore((s) => s.reset);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new content arrives

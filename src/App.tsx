@@ -7,7 +7,6 @@ import { NeuralSplit } from './components/NeuralSplit';
 import { OpeningGate } from './components/ui/OpeningGate';
 import { MissionControlSidebar } from './components/MissionControlSidebar';
 import { ChatView } from './components/ChatView';
-import { StringTune } from '@fiddle-digital/string-tune';
 
 // ─────────────────────────────────────────────────────────────
 // Prompt Input Component
@@ -134,10 +133,6 @@ export default function App() {
   const lastQuery        = useCognitionStore((s) => s.lastQuery);
   const synthesisResult  = useCognitionStore((s) => s.synthesisResult);
   const startDebate      = useCognitionStore((s) => s.startDebate);
-  const agents           = useCognitionStore((s) => s.agents);
-  const tensionVariance  = useCognitionStore((s) => s.tensionVariance);
-  const visualState      = useCognitionStore((s) => s.visualState);
-  const violations       = useCognitionStore((s) => s.violations);
   const memoryDepth      = useCognitionStore((s) => s.memoryDepth);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

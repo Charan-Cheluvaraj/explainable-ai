@@ -54,7 +54,6 @@ export const AnimatedBeam: React.FC<BeamProps> = ({ fromRef, toRef, active, onCo
   const [path, setPath] = useState('');
   const [dotPos, setDotPos] = useState({ x: 0, y: 0 });
   const progress = useMotionValue(0);
-  const smoothProgress = useSpring(progress, { stiffness: 60, damping: 18 });
 
   useEffect(() => {
     if (!active || !fromRef.current || !toRef.current) return;
