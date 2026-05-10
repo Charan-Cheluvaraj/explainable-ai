@@ -16,10 +16,11 @@ import asyncio
 import json
 import os
 from typing import Any, List, Literal, Dict, Optional, Union
-from dotenv import load_dotenv
-
-# Load environment variables from .env
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -49,9 +50,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
+
 @app.get("/health")
 async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get("/mock_registry.json")
+async def get_mock_registry():
+    return FileResponse("public/mock_registry.json")
 
 groq_client   = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
 memory_svc    = MemoryService()
