@@ -447,7 +447,7 @@ You MUST cite at least one source_id from the GROUNDING KNOWLEDGE in your logic_
 Any logic_node with weight > 0.7 that lacks a citation.source_id will be de-weighted by the Judge.
 
 Respond in the strict Synapse3D JSON format.
-CRITICAL: The "decision" field MUST contain a highly detailed, conversational paragraph explaining your stance on the CURRENT USER PROPOSAL. Do NOT put JSON or metadata inside the "decision" field.
+CRITICAL: The "decision" field MUST contain a precise, powerful paragraph asserting your persona's unique perspective on the CURRENT USER PROPOSAL. Do NOT narrate your thought process (e.g., do not say "As a Technocrat..."). Speak directly and authoritatively. Do NOT put JSON or metadata inside the "decision" field.
 """
 
 
@@ -475,7 +475,7 @@ MANDATORY RULES:
   4. Maintain all source_id citations from Round 1 and add new ones if your critique introduces facts.
 
 Respond in the strict Synapse3D JSON format.
-CRITICAL: The "decision" field MUST contain a highly detailed, conversational paragraph explaining your revised stance on the CURRENT USER PROPOSAL. Do NOT put JSON or metadata inside the "decision" field.
+CRITICAL: The "decision" field MUST contain a precise, powerful paragraph asserting your persona's final perspective on the CURRENT USER PROPOSAL. Do NOT narrate the debate process (e.g., do NOT say "In Round 1" or "My peer said"). Present your final, polished argument directly to the user. Do NOT put JSON or metadata inside the "decision" field.
 """
 
 
