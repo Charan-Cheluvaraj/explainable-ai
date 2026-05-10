@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────────────────────
 // OKLCH Design Tokens (Taste-inspired premium palette)
@@ -53,7 +53,6 @@ interface BeamProps {
 export const AnimatedBeam: React.FC<BeamProps> = ({ fromRef, toRef, active, onComplete }) => {
   const [path, setPath] = useState('');
   const [dotPos, setDotPos] = useState({ x: 0, y: 0 });
-  const progress = useMotionValue(0);
 
   useEffect(() => {
     if (!active || !fromRef.current || !toRef.current) return;

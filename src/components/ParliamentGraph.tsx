@@ -142,9 +142,6 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
   const [phase, setPhase] = useState(1);
   const [dim] = useState({ w: window.innerWidth, h: window.innerHeight });
   const resetStore = useCognitionStore(s => s.reset);
-  const agents = useCognitionStore(s => s.agents);
-  const expandedAgentId = useCognitionStore(s => s.expandedAgentId);
-  const toggleAgentExpansion = useCognitionStore(s => s.toggleAgentExpansion);
 
   useEffect(() => {
     if (isDebating) {
