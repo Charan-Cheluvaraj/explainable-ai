@@ -1,0 +1,72 @@
+{
+  "default": {
+    "query": "Should we prioritize AGI safety?",
+    "round_1_responses": {
+      "Technocrat": {
+        "decision": "AGI safety is a mathematical constraint optimization problem.",
+        "confidence": 0.95,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "STABLE"
+      },
+      "Humanist": {
+        "decision": "AGI safety must prioritize human flourishing and ethical alignment over raw capability.",
+        "confidence": 0.88,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "STABLE"
+      },
+      "Inquisitor": {
+        "decision": "Both capability and alignment metrics are flawed proxies. We lack fundamental guarantees.",
+        "confidence": 0.85,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "WARNING"
+      }
+    },
+    "round_2_responses": {
+      "Technocrat": {
+        "decision": "Acknowledging the Inquisitor's critique, we must formalize verifiable bounds on capability.",
+        "confidence": 0.90,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "STABLE"
+      },
+      "Humanist": {
+        "decision": "Formal verification is insufficient without a continuous democratic feedback loop.",
+        "confidence": 0.85,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "STABLE"
+      },
+      "Inquisitor": {
+        "decision": "Democratic feedback loops are susceptible to adversarial manipulation. The risk remains critical.",
+        "confidence": 0.80,
+        "logic_nodes": [],
+        "attribution_map": [],
+        "internal_critique": "",
+        "visual_state": "WARNING"
+      }
+    },
+    "final_synthesis": {
+      "decision": "The Parliament has reached a synthesized consensus. AGI safety cannot be solved through technical alignment alone (Technocrat), nor through purely democratic oversight (Humanist). It requires a hybrid architecture: provable capability bounds enforced by continuous, adversarially-tested human feedback loops (Inquisitor). Proceeding with unconstrained development poses severe systemic risks.",
+      "confidence": 0.92,
+      "logic_nodes": [],
+      "attribution_map": [],
+      "internal_critique": "",
+      "visual_state": "STABLE",
+      "consensus_stability": 0.85,
+      "constitution_report": {
+        "violations": []
+      }
+    },
+    "tension_variance": 0.05,
+    "tension_stdev": 0.22,
+    "memory_depth": 3
+  }
+}

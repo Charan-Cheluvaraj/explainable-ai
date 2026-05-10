@@ -50,6 +50,14 @@ export const TacticalTelemetry: React.FC = () => {
         background: `radial-gradient(600px circle at var(--mouse-x, 0) var(--mouse-y, 0), rgba(255,255,255,0.03), transparent 40%)`
       }}
     >
+      {/* Demo Mode Indicator */}
+      {import.meta.env.VITE_DEMO_MODE === 'true' && (
+        <div className="bg-amber-500/20 text-amber-500 border border-amber-500/50 rounded-lg px-3 py-2 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+          <AlertCircle size={14} className="animate-pulse" />
+          <span className="text-[10px] font-mono font-bold tracking-widest uppercase">◈ OFFLINE CACHE MODE</span>
+        </div>
+      )}
+
       {/* System Status Card */}
       <div className="micro-border bg-[var(--surface-elevated)] backdrop-blur-3xl rounded-2xl p-5 shadow-2xl overflow-hidden relative">
         {/* Scanline Overlay */}

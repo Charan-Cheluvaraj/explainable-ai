@@ -772,6 +772,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
           overflow-y: auto;
           scrollbar-width: thin;
           scrollbar-color: rgba(255,255,255,0.2) transparent;
+          pointer-events: auto;
         }
 
         .verdict-card::-webkit-scrollbar { width: 4px; }
@@ -790,6 +791,7 @@ export const ParliamentGraph: React.FC<ParliamentGraphProps> = ({ query, isDebat
           border-radius: 24px;
           z-index: 400;
           overflow-y: auto;
+          pointer-events: auto;
         }
 
         .close-overlay {

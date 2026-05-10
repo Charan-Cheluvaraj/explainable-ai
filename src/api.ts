@@ -39,6 +39,26 @@ export interface DebateResponse {
 }
 
 export const conductDebate = async (query: string): Promise<DebateResponse> => {
+  const isDemo = import.meta.env.VITE_DEMO_MODE === 'true';
+
+  if (isDemo) {
+    console.log('[DEMO MODE] Intercepted request. Fetching from mock_registry.json...');
+    const res = await fetch('/mock_registry.json');
+    const registry = await res.json();
+    
+    // Find matching query or fallback to default
+    const mockData = registry[query] || registry["default"];
+    
+    // Simulate thinking time for animations
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Return mock data, overriding query field just in case
+    return {
+      ...mockData,
+      query: query
+    };
+  }
+
   const response = await api.post<DebateResponse>('/debate', { query });
   return response.data;
 };
