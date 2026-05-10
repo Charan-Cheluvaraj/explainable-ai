@@ -20,9 +20,8 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from google import genai
-from google.genai import types as genai_types
 from groq import AsyncGroq
+import ollama
 
 from constitution import (
     SynapseConstitution,
@@ -51,12 +50,11 @@ app.add_middleware(
 async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
-gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", "REPLACE_ME"))
 groq_client   = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", "REPLACE_ME"))
 memory_svc    = MemoryService()
 
-GEMINI_MODEL = "gemini-3-flash-preview"
-GROQ_MODEL   = "openai/gpt-oss-20b"
+OLLAMA_MODEL = "llama3.2"
+GROQ_MODEL   = "llama-3.3-70b-versatile"
 
 # ─────────────────────────────────────────────────────────────
 # 2. Pydantic Schemas
@@ -354,37 +352,40 @@ PERSONAS: dict[str, str] = {
 # 5. API Call Helpers
 # ─────────────────────────────────────────────────────────────
 
-async def call_gemini_agent(
+async def call_ollama_agent(
     persona_name: str,
     system_prompt: str,
     user_prompt: str,
-    query: str,
-    retry: int = 1,
 ) -> AgentResult:
     """
-    Fires a structured-output request to Gemini Flash-Lite via the new google-genai SDK.
-    Retries once on schema failure; emits FallbackResponse on total failure.
+    Fires a structured-output request to the local Ollama instance.
+    Uses Llama 3.2 to generate responses in Synapse3D JSON format.
     """
-    config = genai_types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        response_mime_type="application/json",
-        response_schema=Synapse3DResponse,
-    )
     try:
-        response = await gemini_client.aio.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=user_prompt,
-            config=config,
+        # We use the JSON schema from your Pydantic model to force structured output
+        # Using loop.run_in_executor to avoid blocking the event loop with synchronous ollama.chat
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: ollama.chat(
+                model=OLLAMA_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                format=Synapse3DResponse.model_json_schema(),
+                options={
+                    "temperature": 0.4,
+                    "num_ctx": 4096
+                }
+            )
         )
-        return Synapse3DResponse.model_validate_json(response.text)
+        
+        content = response['message']['content']
+        return Synapse3DResponse.model_validate_json(content)
+        
     except Exception as exc:
-        if _is_quota_error(exc):
-            print(f"  [x] [{persona_name}] Quota/rate limit hit. Skipping retry. ({exc})")
-            return FallbackResponse()
-        if retry > 0:
-            print(f"  [!] [{persona_name}] Schema failure - retrying. ({exc})")
-            return await call_gemini_agent(persona_name, system_prompt, user_prompt, query, retry=0)
-        print(f"  [X] [{persona_name}] Fatal reasoning failure. ({exc})")
+        print(f"  [X] [{persona_name}] Local reasoning failure: {exc}")
         return FallbackResponse()
 
 
@@ -419,7 +420,7 @@ async def call_groq_judge(system_prompt: str, user_prompt: str, query: str) -> A
 # ─────────────────────────────────────────────────────────────
 
 def build_round1_prompt(query: str, grounding: str, persona: str) -> str:
-    return f\"\"\"{grounding}
+    return f"""{grounding}
 
 USER PROPOSAL: {query}
 
@@ -429,11 +430,12 @@ You MUST cite at least one source_id from the GROUNDING KNOWLEDGE in your logic_
 Any logic_node with weight > 0.7 that lacks a citation.source_id will be de-weighted by the Judge.
 
 Respond in the strict Synapse3D JSON format.
-\"\"\"
+CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and conversational paragraph explaining your stance. Do NOT put JSON or metadata inside the "decision" field.
+"""
 
 
 def build_round2_prompt(query: str, grounding: str, own_r1: str, peers_r1: str) -> str:
-    return f\"\"\"{grounding}
+    return f"""{grounding}
 
 USER PROPOSAL: {query}
 
@@ -446,17 +448,18 @@ ROUND 1 STANCES FROM YOUR PEERS:
 ROUND 2 — ADVERSARIAL CRITIQUE (THE BRAWL):
 MANDATORY RULES:
   1. You are FORBIDDEN from simply agreeing with your peers.
-  2. You MUST identify at least ONE \"Logical Contradiction\" or \"Evidence Gap\" in EACH peer's
+  2. You MUST identify at least ONE "Logical Contradiction" or "Evidence Gap" in EACH peer's
      logic_nodes or attribution_map. Name the specific logic_node label you are attacking.
   3. Revise your own stance in light of this critique — but defend your persona's mandate.
   4. Maintain all source_id citations from Round 1 and add new ones if your critique introduces facts.
 
 Respond in the strict Synapse3D JSON format.
-\"\"\"
+CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and conversational paragraph explaining your revised stance. Do NOT put JSON or metadata inside the "decision" field.
+"""
 
 
 def build_judge_prompt(query: str, grounding: str, r2_transcript: str) -> str:
-    return f\"\"\"{grounding}
+    return f"""{grounding}
 
 USER PROPOSAL: {query}
 
@@ -464,11 +467,18 @@ FULL ROUND 2 DEBATE TRANSCRIPT (CLOSING ARGUMENTS):
 {r2_transcript}
 
 SYNTHESIS TASK:
-Review the Brawl above as a Supreme Court Justice bound by the Synapse Constitution.
-Produce the final Synapse3D JSON synthesis.
+You are the FINAL ARBITER. Review the Brawl above. 
+Your goal is NOT just to synthesize, but to CORRECT. 
+The sub-agents above are local models and may have hallucinated or provided incorrect math/logic.
+1. Use the GROUNDING KNOWLEDGE to identify any factual errors in the transcript.
+2. In your "decision" field, provide the definitive, absolute correct answer, rectifying any mistakes made by the agents.
+3. Your answer MUST be detailed, clear, and comprehensive.
+
 Remember: you must populate constitution_report, visual_state, consensus_stability,
 and (if required by Law 2) dissenting_opinion.
-\"\"\"
+
+CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and clear synthesis paragraph explaining the final, CORRECTED verdict to the user. Do NOT put JSON or metadata inside the "decision" field.
+"""
 
 
 # ─────────────────────────────────────────────────────────────
@@ -479,7 +489,7 @@ and (if required by Law 2) dissenting_opinion.
 async def run_synapse_parliament(request: QueryRequest) -> DebateState:
     try:
         query = request.query
-        print(f"\\n{'='*60}")
+        print(f"\n{'='*60}")
         print(f"  SYNAPSE3D PARLIAMENT  |  Query: {query[:60]}...")
         print(f"{'='*60}")
 
@@ -489,14 +499,13 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         grounding_block = bundle.formatted_block
         state = DebateState(query=query, grounding_bundle=bundle)
 
-        # -- Round 1: Parallel Independent Generation -------------
-        print("  [1] Round 1 - Parallel independent generation...")
+        # -- Round 1: Local Parallel Generation -------------
+        print("  [1] Round 1 - Local parallel generation (Ollama)...")
         r1_tasks = [
-            call_gemini_agent(
+            call_ollama_agent(
                 name,
                 PERSONAS[name],
                 build_round1_prompt(query, grounding_block, name),
-                query,
             )
             for name in PERSONAS
         ]
@@ -511,8 +520,8 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         state.compute_tension()
         print(f"     Tension  Var={state.tension_variance:.4f}  StDev={state.tension_stdev:.4f}")
 
-        # -- Round 2: Adversarial Critique ------------------------
-        print(f"  [2] Round 2 - Brawl...")
+        # -- Round 2: Local Adversarial Critique -------------
+        print(f"  [2] Round 2 - Local Brawl (Ollama)...")
 
         def _dump(res: AgentResult) -> str:
             return json.dumps(res.model_dump(exclude_none=True), indent=2)
@@ -520,17 +529,16 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         r2_tasks = []
         for name in PERSONAS:
             own_r1 = _dump(state.round_1_responses[name])
-            peers  = "\\n\\n".join(
-                f"--- {peer} ---\\n{_dump(state.round_1_responses[peer])}"
+            peers  = "\n\n".join(
+                f"--- {peer} ---\n{_dump(state.round_1_responses[peer])}"
                 for peer in PERSONAS if peer != name
                 and not getattr(state.round_1_responses[peer], "reasoning_failure", False)
             )
             r2_tasks.append(
-                call_gemini_agent(
+                call_ollama_agent(
                     name,
                     PERSONAS[name],
                     build_round2_prompt(query, grounding_block, own_r1, peers),
-                    query,
                 )
             )
 
@@ -540,15 +548,15 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
             status = "[OK]" if not getattr(result, "reasoning_failure", False) else "[FAIL]"
             print(f"     {status} {name:<14} post-brawl stance recorded")
 
-        if all(getattr(result, \"reasoning_failure\", False) for result in r2_results):
+        if all(getattr(result, "reasoning_failure", False) for result in r2_results):
             print("     [FALLBACK] Round 2 exhausted quota or returned invalid schema. Reusing Round 1 responses for synthesis.")
             state.round_2_responses = dict(state.round_1_responses)
 
         # -- Round 3: Constitutional Synthesis --------------------
         print("  [3] Round 3 - Sovereign Judge synthesis...")
 
-        r2_transcript = "\\n\\n".join(
-            f"=== {name} (Round 2) ===\\n{_dump(state.round_2_responses[name])}"
+        r2_transcript = "\n\n".join(
+            f"=== {name} (Round 2) ===\n{_dump(state.round_2_responses[name])}"
             for name in PERSONAS
             if not getattr(state.round_2_responses[name], "reasoning_failure", False)
         )
@@ -558,21 +566,21 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
 
         state.final_synthesis = await call_groq_judge(judge_sys, judge_user, query)
         if (
-            getattr(state.final_synthesis, \"decision\", \"\").strip() == \"Reasoning Failure\"
-            or not getattr(state.final_synthesis, \"decision\", \"\").strip()
+            getattr(state.final_synthesis, "decision", "").strip() == "Reasoning Failure"
+            or not getattr(state.final_synthesis, "decision", "").strip()
         ):
             state.final_synthesis.decision = _derive_consensus_summary(state)
-        if getattr(state.final_synthesis, \"confidence\", 0.0) <= 0:
+        if getattr(state.final_synthesis, "confidence", 0.0) <= 0:
             fallback_confidence = max(
-                getattr(state.final_synthesis, \"consensus_stability\", 0.0),
+                getattr(state.final_synthesis, "consensus_stability", 0.0),
                 0.28,
             )
             state.final_synthesis.confidence = round(fallback_confidence, 2)
 
-        vs = getattr(state.final_synthesis, \"visual_state\", \"UNKNOWN\")
-        cs = getattr(state.final_synthesis, \"consensus_stability\", 0.0)
+        vs = getattr(state.final_synthesis, "visual_state", "UNKNOWN")
+        cs = getattr(state.final_synthesis, "consensus_stability", 0.0)
         print(f"     Judge complete  visual_state={vs}  consensus_stability={cs:.2f}")
-        print(f"{'='*60}\\n")
+        print(f"{'='*60}\n")
 
         return state
     except Exception as exc:
@@ -584,11 +592,11 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
 # Entry Point
 # ─────────────────────────────────────────────────────────────
 
-if __name__ == \"__main__\":
+if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        \"orchestrator:app\",
-        host=\"0.0.0.0\",
+        "orchestrator:app",
+        host="0.0.0.0",
         port=8000,
-        reload=os.getenv(\"UVICORN_RELOAD\", \"false\").lower() == \"true\",
+        reload=os.getenv("UVICORN_RELOAD", "false").lower() == "true",
     )
