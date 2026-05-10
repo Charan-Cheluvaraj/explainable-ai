@@ -505,6 +505,53 @@ CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, an
 """
 
 
+async def detect_context_intent(query: str, grounding_block: str) -> str:
+    """
+    Determines if the query is a FOLLOW_UP to existing context or a NEW_TOPIC.
+    Uses a very short, low-token Groq call for speed.
+    """
+    try:
+        # If there's no real historical context in the grounding block, it's a new topic.
+        if "SYNAPSE3D PARLIAMENT" not in grounding_block and "Memory" not in grounding_block:
+            return "NEW_TOPIC"
+
+        resp = await groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": "Respond with exactly one word: 'FOLLOW_UP' if the query is a follow-up/clarification of the provided history, or 'NEW_TOPIC' if it's a change of subject."},
+                {"role": "user", "content": f"HISTORY:\n{grounding_block[:2000]}\n\nQUERY: {query}"}
+            ],
+            max_tokens=5,
+            temperature=0.0
+        )
+        decision = resp.choices[0].message.content.strip().upper()
+        return "FOLLOW_UP" if "FOLLOW" in decision else "NEW_TOPIC"
+    except:
+        return "NEW_TOPIC"
+
+
+async def call_groq_fast_track(query: str, history: str) -> Synapse3DResponse:
+    """
+    Answers a follow-up query directly using the Judge (Groq), 
+    skipping agent rounds for speed while maintaining consistent output format.
+    """
+    system = SynapseConstitution.get_judge_prompt(0.0) # Zero tension for fast track
+    user = f"""=== CONTEXTUAL FOLLOW-UP ===
+The user has asked a follow-up question related to the previous debate.
+To ensure a high-speed response, the Parliament has authorized a DIRECT SYNTHESIS.
+
+PREVIOUS CONTEXT / HISTORY:
+{history}
+
+FOLLOW-UP QUERY: {query}
+
+TASK:
+Provide a detailed, expert response in the Synapse3D JSON format. 
+Since this is a fast-track follow-up, focus on continuity with the previous synthesis.
+"""
+    return await call_groq_judge(system, user, query)
+
+
 # ─────────────────────────────────────────────────────────────
 # 7. Orchestration Pipeline
 # ─────────────────────────────────────────────────────────────
@@ -522,6 +569,22 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         bundle: GroundingBundle = await memory_svc.retrieve_context(query)
         grounding_block = bundle.formatted_block
         state = DebateState(query=query, grounding_bundle=bundle, memory_depth=bundle.memory_depth)
+
+        # -- Context Check: Fast Track Optimization ----------------
+        intent = await detect_context_intent(query, grounding_block)
+        if intent == "FOLLOW_UP":
+            print("  [⚡] FAST TRACK: Contextual follow-up detected. Skipping sub-agent rounds.")
+            state.final_synthesis = await call_groq_fast_track(query, grounding_block)
+            
+            # Fill dummy stances so the UI doesn't look empty
+            for name in PERSONAS:
+                msg = "Fast Track: Contextual follow-up handled directly by the Sovereign Judge."
+                state.round_1_responses[name] = FallbackResponse(decision=msg, confidence=1.0)
+                state.round_2_responses[name] = FallbackResponse(decision=msg, confidence=1.0)
+            
+            print("     Judge complete via Fast Track.")
+            print(f"{'='*60}\n")
+            return state
 
         # -- Round 1: Local Parallel Generation -------------
         print("  [1] Round 1 - Local parallel generation (Ollama)...")
