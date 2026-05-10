@@ -496,12 +496,12 @@ The sub-agents above are local models and may have hallucinated or focused on th
 1. Ensure your answer directly addresses the CURRENT USER PROPOSAL.
 2. Use the GROUNDING KNOWLEDGE to identify any factual errors in the transcript.
 3. In your "decision" field, provide the definitive, absolute correct answer, rectifying any mistakes made by the agents.
-4. Your answer MUST be detailed, clear, and comprehensive.
+4. Your answer MUST be powerful, clear, and concise.
 
 Remember: you must populate constitution_report, visual_state, consensus_stability,
 and (if required by Law 2) dissenting_opinion.
 
-CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, and clear synthesis paragraph explaining the final, CORRECTED verdict to the user. Do NOT put JSON or metadata inside the "decision" field.
+CRITICAL: The "decision" field MUST contain a powerful, concise, and clear synthesis paragraph explaining the final, CORRECTED verdict to the user. Do NOT put JSON or metadata inside the "decision" field.
 """
 
 
