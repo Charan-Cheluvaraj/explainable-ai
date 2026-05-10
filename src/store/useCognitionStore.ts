@@ -41,12 +41,14 @@ interface CognitionStore {
   hasEntered: boolean;
   memoryDepth: number;  // How many Backboard facts were retrieved
   expandedAgentId: string | null;
+  isPromptVisible: boolean;
   
   // Actions
   enterParliament: () => void;
   startDebate: (query: string) => Promise<void>;
   reset: () => void;
   toggleAgentExpansion: (id: string) => void;
+  setPromptVisible: (visible: boolean) => void;
 }
 
 const formatSynthesisAnswer = (_query: string, rawAnswer: string): string => {
@@ -70,6 +72,7 @@ const INITIAL_STATE = {
   hasEntered: false,
   memoryDepth: 0,
   expandedAgentId: null,
+  isPromptVisible: true,
 };
 
 export const useCognitionStore = create<CognitionStore>((set, get) => ({
@@ -176,5 +179,7 @@ export const useCognitionStore = create<CognitionStore>((set, get) => ({
       expandedAgentId: state.expandedAgentId === id ? null : id
     }));
   },
+  
+  setPromptVisible: (visible: boolean) => set({ isPromptVisible: visible }),
 }));
 

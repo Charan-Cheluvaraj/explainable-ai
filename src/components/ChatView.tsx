@@ -9,12 +9,40 @@ export const ChatView: React.FC = () => {
   const result = useCognitionStore((s) => s.synthesisResult);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const setPromptVisible = useCognitionStore((s) => s.setPromptVisible);
+  const lastScrollTop = useRef(0);
+
   // Auto-scroll to bottom when new content arrives
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [result]);
+
+  // Handle scroll direction for prompt bar visibility
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const currentScrollTop = el.scrollTop;
+      
+      // Threshold to prevent flickering
+      if (Math.abs(currentScrollTop - lastScrollTop.current) < 10) return;
+
+      if (currentScrollTop > lastScrollTop.current && currentScrollTop > 100) {
+        // Scrolling down — hide prompt
+        setPromptVisible(false);
+      } else {
+        // Scrolling up — show prompt
+        setPromptVisible(true);
+      }
+      lastScrollTop.current = currentScrollTop;
+    };
+
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [setPromptVisible]);
 
   const AGENTS_UI = {
     technocrat: { name: 'Technocrat', icon: <Search size={20} />, color: 'var(--color-logic)' },

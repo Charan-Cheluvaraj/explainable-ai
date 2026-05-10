@@ -505,57 +505,6 @@ CRITICAL: The "decision" field MUST contain a highly detailed, comprehensive, an
 """
 
 
-async def detect_context_intent(query: str, grounding_block: str) -> str:
-    """
-    Determines if the query is a FOLLOW_UP to existing context or a NEW_TOPIC.
-    Uses a very short, low-token Groq call for speed.
-    """
-    try:
-        # If there's NO historical context at all, it's definitely a new topic.
-        # Check for our memory markers in the grounding block.
-        has_history = any(marker in grounding_block for marker in ["Memory", "Record", "PARLIAMENT", "GROUNDING_KNOWLEDGE"])
-        if not has_history:
-            return "NEW_TOPIC"
-
-        resp = await groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a context switch detector. Determine if the user is asking a follow-up or clarifying question about the provided HISTORY. If the user uses pronouns (it, they, this), asks for more details, risks, or benefits of the previous topic, it is a FOLLOW_UP. Only respond with NEW_TOPIC if they pivot to a completely unrelated subject."},
-                {"role": "user", "content": f"HISTORY:\n{grounding_block[:3000]}\n\nQUERY: {query}"}
-            ],
-            max_tokens=10,
-            temperature=0.0
-        )
-        decision = resp.choices[0].message.content.strip().upper()
-        print(f"     [DEBUG] Intent detection result: {decision}")
-        return "FOLLOW_UP" if "FOLLOW" in decision else "NEW_TOPIC"
-    except Exception as e:
-        print(f"     [DEBUG] Context detection failed: {e}")
-        return "NEW_TOPIC"
-
-
-async def call_groq_fast_track(query: str, history: str) -> Synapse3DResponse:
-    """
-    Answers a follow-up query directly using the Judge (Groq), 
-    skipping agent rounds for speed while maintaining consistent output format.
-    """
-    system = SynapseConstitution.get_judge_prompt(0.0) # Zero tension for fast track
-    user = f"""=== CONTEXTUAL FOLLOW-UP ===
-The user has asked a follow-up question related to the previous debate.
-To ensure a high-speed response, the Parliament has authorized a DIRECT SYNTHESIS.
-
-PREVIOUS CONTEXT / HISTORY:
-{history}
-
-FOLLOW-UP QUERY: {query}
-
-TASK:
-Provide a detailed, expert response in the Synapse3D JSON format. 
-Since this is a fast-track follow-up, focus on continuity with the previous synthesis.
-"""
-    return await call_groq_judge(system, user, query)
-
-
 # ─────────────────────────────────────────────────────────────
 # 7. Orchestration Pipeline
 # ─────────────────────────────────────────────────────────────
@@ -573,41 +522,6 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         bundle: GroundingBundle = await memory_svc.retrieve_context(query)
         grounding_block = bundle.formatted_block
         state = DebateState(query=query, grounding_bundle=bundle, memory_depth=bundle.memory_depth)
-
-        # -- Context Check: Fast Track Optimization ----------------
-        intent = await detect_context_intent(query, grounding_block)
-        if intent == "FOLLOW_UP":
-            print("  [⚡] FAST TRACK: Contextual follow-up detected. Skipping sub-agent rounds.")
-            state.final_synthesis = await call_groq_fast_track(query, grounding_block)
-            
-            # Fill dummy stances so the UI doesn't look empty or broken
-            for name in PERSONAS:
-                msg = "Authorized: This is a contextual follow-up. Direct synthesis activated for continuity."
-                state.round_1_responses[name] = Synapse3DResponse(
-                    decision=msg, 
-                    confidence=1.0, 
-                    logic_nodes=[], 
-                    attribution_map=[],
-                    visual_state="STABLE"
-                )
-                state.round_2_responses[name] = Synapse3DResponse(
-                    decision=msg, 
-                    confidence=1.0, 
-                    logic_nodes=[], 
-                    attribution_map=[],
-                    visual_state="STABLE"
-                )
-            
-            # Persist this new turn too
-            await memory_svc.post_agent_message("User", "Follow-up Query", query, 1.0)
-            await memory_svc.post_agent_message("Sovereign Judge", "Fast Track Synthesis", state.final_synthesis.decision, 1.0)
-
-            print("     Judge complete via Fast Track.")
-            print(f"{'='*60}\n")
-            return state
-
-        # Not a follow-up? Persist the new query to start a new context anchor
-        await memory_svc.post_agent_message("User", "Initial Query", query, 1.0)
 
         # -- Round 1: Local Parallel Generation -------------
         print("  [1] Round 1 - Local parallel generation (Ollama)...")
@@ -718,16 +632,6 @@ async def run_synapse_parliament(request: QueryRequest) -> DebateState:
         vs = getattr(state.final_synthesis, "visual_state", "UNKNOWN")
         cs = getattr(state.final_synthesis, "consensus_stability", 0.0)
         print(f"     Judge complete  visual_state={vs}  consensus_stability={cs:.2f}")
-
-        # -- Persist Final Synthesis to Backboard ----------------
-        print("  [3b] Posting Final Synthesis to Backboard memory...")
-        await memory_svc.post_agent_message(
-            "Sovereign Judge",
-            "Final Synthesis",
-            getattr(state.final_synthesis, "decision", "N/A"),
-            getattr(state.final_synthesis, "confidence", 1.0),
-        )
-
         print(f"{'='*60}\n")
 
         return state
